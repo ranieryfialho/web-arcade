@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { ChevronLeft, Info } from 'lucide-react';
-import Link from 'next/link';
+// Removemos o 'Link' do next/link e usamos a tag <a> padrão para forçar limpeza de memória
 import { createClient } from '@/lib/supabase/server';
 import { GameEmulator } from '@/components/features/GameEmulator';
 import { ConsoleBadge } from '@/components/ui/ConsoleBadge';
@@ -23,6 +23,7 @@ export default async function PlayPage({ params }: PlayPageProps) {
   const { id } = await params;
   const supabase = await createClient();
 
+  // Busca o jogo específico
   const { data: game, error } = await supabase
     .from('games')
     .select('*')
@@ -35,15 +36,19 @@ export default async function PlayPage({ params }: PlayPageProps) {
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col bg-background-primary">
+      {/* Barra de Ferramentas */}
       <div className="border-b border-background-tertiary bg-background-card px-4 py-3">
         <div className="container mx-auto flex items-center justify-between">
-          <Link 
+          
+          {/* MUDANÇA AQUI: Usamos <a> em vez de <Link> */}
+          {/* Isso força o navegador a recarregar a página ao sair, matando o áudio do emulador */}
+          <a 
             href="/shelf" 
-            className="flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-brand-primary transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-brand-primary transition-colors cursor-pointer"
           >
             <ChevronLeft size={16} />
             Voltar para a Estante
-          </Link>
+          </a>
           
           <div className="flex items-center gap-3">
             <h1 className="font-mono text-lg font-bold text-text-primary hidden sm:block">
@@ -54,10 +59,12 @@ export default async function PlayPage({ params }: PlayPageProps) {
         </div>
       </div>
 
+      {/* Área do Emulador */}
       <main className="flex-1 container mx-auto flex flex-col items-center justify-center p-4 lg:p-8">
         <div className="w-full max-w-5xl">
           <GameEmulator game={game} />
           
+          {/* Informações Extras */}
           <div className="mt-6 flex items-start gap-4 rounded-lg bg-background-secondary p-4 border border-background-tertiary">
             <Info className="mt-1 h-5 w-5 text-brand-primary shrink-0" />
             <div>
