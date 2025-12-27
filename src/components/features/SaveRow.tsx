@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Trash2, Play, Calendar, Loader2 } from 'lucide-react';
 import { deleteSave } from '@/app/profile/actions';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 
 interface SaveRowProps {
   save: {
@@ -19,13 +20,16 @@ interface SaveRowProps {
 
 export function SaveRow({ save }: SaveRowProps) {
   const [isPending, startTransition] = useTransition();
+  const [showModal, setShowModal] = useState(false);
 
-  const handleDelete = () => {
-    const confirmed = window.confirm(`Tem certeza que deseja apagar o save de ${save.games?.title}? Essa ação não pode ser desfeita.`);
-    if (!confirmed) return;
+  const handleTrashClick = () => {
+    setShowModal(true);
+  };
 
+  const handleConfirmDelete = () => {
     startTransition(async () => {
       await deleteSave(save.id);
+      setShowModal(false);
     });
   };
 
@@ -72,18 +76,23 @@ export function SaveRow({ save }: SaveRowProps) {
           </Link>
 
           <button
-            onClick={handleDelete}
+            onClick={handleTrashClick}
             disabled={isPending}
             className="flex items-center justify-center rounded-md p-2 text-text-muted hover:bg-red-950/30 hover:text-red-500 transition-colors disabled:opacity-50"
             title="Apagar Save"
           >
-            {isPending ? (
-              <Loader2 size={18} className="animate-spin text-red-500" />
-            ) : (
-              <Trash2 size={18} />
-            )}
+            <Trash2 size={18} />
           </button>
         </div>
+
+        <ConfirmationModal 
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+          onConfirm={handleConfirmDelete}
+          title="Excluir Save?"
+          description={`Tem certeza que deseja apagar o progresso de ${save.games.title}? Esta ação é permanente e não pode ser desfeita.`}
+          isLoading={isPending}
+        />
       </td>
     </tr>
   );
