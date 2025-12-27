@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation'; // <--- Importante
 import { Loader2, Save, CheckCircle2, AlertTriangle, Trophy, DownloadCloud } from 'lucide-react';
 import { Database } from '@/types/database.types';
 import { getLatestSave, uploadSaveState, incrementPlaytime } from '@/app/play/actions';
@@ -14,6 +15,8 @@ interface GameEmulatorProps {
 export function GameEmulator({ game }: GameEmulatorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const searchParams = useSearchParams(); // <--- Pega os parâmetros da URL
+  const hasAutoloadedRef = useRef(false); // <--- Evita carregar duas vezes
   
   // Estados de UI
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
@@ -21,8 +24,7 @@ export function GameEmulator({ game }: GameEmulatorProps) {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [newAchievement, setNewAchievement] = useState<string | null>(null);
 
-  // --- 1. CONSTRUÇÃO DO HTML ISOLADO (SANDBOX) ---
-  // Isso cria uma "página web" completa dentro do componente
+  // --- HTML DO IFRAME (SANDBOX) ---
   const getIframeContent = () => {
     const systemCode = (() => {
       switch (game.console_type) {
@@ -46,7 +48,6 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           <div id="game-container"></div>
           
           <script>
-            // Configuração do Emulador (Rodando isolado)
             window.EJS_player = '#game-container';
             window.EJS_core = '${systemCode}';
             window.EJS_gameUrl = '${game.rom_url}';
@@ -54,40 +55,33 @@ export function GameEmulator({ game }: GameEmulatorProps) {
             window.EJS_startOnLoaded = true;
             window.EJS_backgroundColor = '#000000';
             window.EJS_b_save = true;
-            window.EJS_b_load = false; // Desativa load nativo
+            window.EJS_b_load = false;
 
-            // INTERCEPTADOR DE SAVE (Envia para o Pai/React)
             window.EJS_onSaveState = function(data) {
               try {
-                // Converte o objeto do emulador para Blob e depois para ArrayBuffer
                 const stateData = data.state || data;
                 const blob = new Blob([stateData], { type: 'application/octet-stream' });
-                
                 const reader = new FileReader();
                 reader.onload = function() {
-                  // Envia mensagem para o React: "Ei, tenho um save aqui!"
                   window.parent.postMessage({ type: 'SAVE_STATE_FROM_EMULATOR', buffer: reader.result }, '*');
                 };
                 reader.readAsArrayBuffer(blob);
               } catch (e) {
                 console.error('Erro no iframe save:', e);
               }
-              return false; // Bloqueia download nativo
+              return false;
             };
 
-            // NOTIFICAÇÃO DE INÍCIO
             window.EJS_onGameStart = function() {
               window.parent.postMessage({ type: 'GAME_STARTED' }, '*');
             };
 
-            // RECEBEDOR DE LOAD (Ouve o Pai/React)
             window.addEventListener('message', function(e) {
               if (e.data.type === 'LOAD_SAVE_INTO_EMULATOR') {
-                console.log('📦 Iframe: Recebido comando de Load');
+                console.log('📦 Iframe: Load Command Received');
                 try {
                   const u8array = new Uint8Array(e.data.buffer);
                   if (window.EJS_emulator) {
-                     // Tenta carregar usando as APIs conhecidas
                      if (typeof window.EJS_emulator.loadState === 'function') {
                         window.EJS_emulator.loadState(u8array);
                      } else if (window.EJS_emulator.gameManager && typeof window.EJS_emulator.gameManager.loadState === 'function') {
@@ -98,61 +92,14 @@ export function GameEmulator({ game }: GameEmulatorProps) {
               }
             });
           </script>
-          
           <script src="https://cdn.jsdelivr.net/gh/ethanaobrien/emulatorjs@main/data/loader.js"></script>
         </body>
       </html>
     `;
   };
 
-  // --- 2. COMUNICAÇÃO (REACT -> IFRAME) ---
-  
-  // Função para processar o Save vindo do Iframe
-  const handleSaveFromIframe = useCallback(async (arrayBuffer: ArrayBuffer) => {
-    setSaveStatus('saving');
-    try {
-      const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
-      const formData = new FormData();
-      formData.append('file', blob);
-      formData.append('gameId', game.id);
-
-      const result = await uploadSaveState(formData);
-      if (result.error) throw new Error(result.error);
-
-      console.log("✅ React: Save salvo na nuvem!");
-      setSaveStatus('success');
-      setTimeout(() => setSaveStatus('idle'), 4000);
-    } catch (error: any) {
-      console.error("❌ Erro upload:", error);
-      setSaveStatus('error');
-      setErrorMessage(error.message);
-      setTimeout(() => setSaveStatus('idle'), 5000);
-    }
-  }, [game.id]);
-
-  // Listener Global de Mensagens (Ouve o Iframe)
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      // Ignora mensagens que não são nossas
-      if (!event.data) return;
-
-      if (event.data.type === 'GAME_STARTED') {
-        setIsPlaying(true);
-      }
-      
-      if (event.data.type === 'SAVE_STATE_FROM_EMULATOR' && event.data.buffer) {
-        console.log("💾 React: Recebido save do Iframe");
-        handleSaveFromIframe(event.data.buffer);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [handleSaveFromIframe]);
-
-
-  // --- 3. FUNÇÃO DE LOAD (REACT -> IFRAME) ---
-  const handleLoadClick = async () => {
+  // --- FUNÇÃO DE LOAD (USADA NO BOTÃO E NO AUTOLOAD) ---
+  const handleLoadClick = useCallback(async () => {
     setLoadStatus('loading');
     setErrorMessage('');
     
@@ -170,7 +117,6 @@ export function GameEmulator({ game }: GameEmulatorProps) {
       const response = await fetch(signedUrl);
       const arrayBuffer = await response.arrayBuffer();
 
-      // Mágica: Envia o arquivo binário para dentro do Iframe
       if (iframeRef.current && iframeRef.current.contentWindow) {
         console.log("📤 Enviando save para o Iframe...");
         iframeRef.current.contentWindow.postMessage({
@@ -186,10 +132,64 @@ export function GameEmulator({ game }: GameEmulatorProps) {
       setLoadStatus('error');
       setTimeout(() => setLoadStatus('idle'), 3000);
     }
-  };
+  }, [game.id]);
+
+  // --- HANDLE SAVE ---
+  const handleSaveFromIframe = useCallback(async (arrayBuffer: ArrayBuffer) => {
+    setSaveStatus('saving');
+    try {
+      const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
+      const formData = new FormData();
+      formData.append('file', blob);
+      formData.append('gameId', game.id);
+
+      const result = await uploadSaveState(formData);
+      if (result.error) throw new Error(result.error);
+
+      console.log("✅ Save salvo na nuvem!");
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus('idle'), 4000);
+    } catch (error: any) {
+      console.error("❌ Erro upload:", error);
+      setSaveStatus('error');
+      setErrorMessage(error.message);
+      setTimeout(() => setSaveStatus('idle'), 5000);
+    }
+  }, [game.id]);
+
+  // --- LISTENER DE MENSAGENS E AUTOLOAD ---
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (!event.data) return;
+
+      if (event.data.type === 'GAME_STARTED') {
+        setIsPlaying(true);
+
+        // --- LÓGICA DE AUTOLOAD ---
+        const shouldAutoload = searchParams.get('autoload') === 'true';
+        
+        if (shouldAutoload && !hasAutoloadedRef.current) {
+          console.log("🔄 Autoload detectado! Iniciando carregamento...");
+          hasAutoloadedRef.current = true;
+          
+          // Espera 1s para garantir que o emulador está respirando
+          setTimeout(() => {
+            handleLoadClick();
+          }, 1000);
+        }
+      }
+      
+      if (event.data.type === 'SAVE_STATE_FROM_EMULATOR' && event.data.buffer) {
+        handleSaveFromIframe(event.data.buffer);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [handleSaveFromIframe, handleLoadClick, searchParams]);
 
 
-  // --- 4. GAMIFICAÇÃO (HEARTBEAT) ---
+  // --- GAMIFICAÇÃO ---
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isPlaying) {
@@ -207,8 +207,6 @@ export function GameEmulator({ game }: GameEmulatorProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-background-tertiary bg-black shadow-2xl">
-        
-        {/* O IFRAME MÁGICO - Tudo roda aqui dentro */}
         <iframe
           ref={iframeRef}
           srcDoc={getIframeContent()}
@@ -217,7 +215,6 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           allow="autoplay; fullscreen; gamepad"
         />
         
-        {/* Loading Overlay (Enquanto o jogo não começa dentro do iframe) */}
         {!isPlaying && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white bg-black/90 z-10 pointer-events-none">
             <Loader2 className="h-10 w-10 animate-spin text-brand-primary" />
@@ -225,7 +222,7 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           </div>
         )}
 
-        {/* Feedback Visual (Toasts) */}
+        {/* Feedback Save */}
         {saveStatus !== 'idle' && (
           <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2
             ${saveStatus === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' : 'bg-background-card/90 border-white/10 text-white'}`}>
@@ -235,6 +232,7 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           </div>
         )}
 
+        {/* Feedback Load */}
         {loadStatus !== 'idle' && (
           <div className={`absolute top-16 right-4 z-20 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2
             ${loadStatus === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' : 'bg-blue-950/90 border-blue-500/50 text-blue-200'}`}>
@@ -244,7 +242,7 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           </div>
         )}
 
-        {/* Toast de Conquista */}
+        {/* Toast Conquista */}
         {newAchievement && (
           <div className="absolute top-4 left-4 z-30 flex items-center gap-4 rounded-xl border border-brand-primary/50 bg-black/90 p-4 shadow-glow animate-in slide-in-from-top-4 duration-700">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-orange-600 text-white shadow-lg animate-bounce">
