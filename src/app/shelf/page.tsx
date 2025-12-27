@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { GameCard } from '@/components/features/GameCard';
 
 export const metadata = {
-  title: 'The Shelf | Web Arcade',
+  title: 'Biblioteca de Jogos | Web Arcade',
   description: 'Explore nossa coleção de clássicos.',
 };
 
