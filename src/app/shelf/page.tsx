@@ -1,64 +1,62 @@
-import { Gamepad2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { GameCard } from '@/components/features/GameCard';
+import Link from 'next/link';
+import { Gamepad2, Search } from 'lucide-react';
+import { ConsoleBadge } from '@/components/ui/ConsoleBadge';
 
 export const metadata = {
   title: 'Biblioteca de Jogos | Web Arcade',
-  description: 'Explore nossa coleção de clássicos.',
 };
 
 export default async function ShelfPage() {
   const supabase = await createClient();
 
-  const { data: games, error } = await supabase
+  const { data: games } = await supabase
     .from('games')
     .select('*')
     .order('title', { ascending: true });
 
-  if (error) {
-    console.error('Erro ao buscar jogos:', error);
-    return (
-      <div className="flex h-[50vh] w-full items-center justify-center text-accent-danger">
-        <p>Erro ao carregar a biblioteca. Tente novamente mais tarde.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto min-h-screen px-4 py-8">
-      <div className="mb-10 flex flex-col gap-4 border-b border-background-tertiary pb-6 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="flex items-center gap-3 font-mono text-4xl font-bold text-text-primary">
-            <Gamepad2 className="text-brand-primary" size={40} />
-            Biblioteca de Jogos
-          </h1>
-          <p className="mt-2 text-text-secondary">
-            Sua coleção pessoal de memórias digitais. Escolha um cartucho e divirta-se.
-          </p>
-        </div>
+    <div className="min-h-screen bg-background-primary px-4 py-8">
+      <div className="container mx-auto space-y-8">
         
-        <div className="text-sm font-medium text-text-muted">
-          {games?.length || 0} Jogos disponíveis
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-background-tertiary pb-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-primary text-white shadow-glow">
+              <Gamepad2 size={28} />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-text-primary">Biblioteca</h1>
+              <p className="text-text-secondary">Explore nossa coleção de clássicos.</p>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {games && games.length > 0 ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {games.map((game) => (
-            <GameCard key={game.id} game={game} />
+          {games?.map((game) => (
+            <Link 
+              key={game.id} 
+              href={`/play/${game.id}`}
+              className="group relative overflow-hidden rounded-xl border border-background-tertiary bg-background-card transition-all hover:-translate-y-1 hover:border-brand-primary hover:shadow-glow"
+            >
+              <div className="aspect-video w-full bg-black relative">
+                <img 
+                  src={game.cover_url} 
+                  alt={game.title} 
+                  className="h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
+                />
+                <div className="absolute bottom-2 right-2">
+                  <ConsoleBadge type={game.console_type} />
+                </div>
+              </div>
+
+              <div className="p-4">
+                <h3 className="font-bold text-text-primary truncate">{game.title}</h3>
+                <p className="text-xs text-text-muted mt-1">Clique para jogar agora</p>
+              </div>
+            </Link>
           ))}
         </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="mb-4 rounded-full bg-background-tertiary p-6 text-text-muted">
-            <Gamepad2 size={48} />
-          </div>
-          <h3 className="text-xl font-bold text-text-primary">A estante está vazia</h3>
-          <p className="mt-2 text-text-secondary">
-            Nenhum jogo encontrado no banco de dados.
-          </p>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -1,30 +1,34 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation'; // <--- Importante
-import { Loader2, Save, CheckCircle2, AlertTriangle, Trophy, DownloadCloud } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Loader2, Save, CheckCircle2, AlertTriangle, Trophy, DownloadCloud, LogIn } from 'lucide-react';
 import { Database } from '@/types/database.types';
 import { getLatestSave, uploadSaveState, incrementPlaytime } from '@/app/play/actions';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 
 type Game = Database['public']['Tables']['games']['Row'];
 
 interface GameEmulatorProps {
   game: Game;
+  isGuest: boolean;
 }
 
-export function GameEmulator({ game }: GameEmulatorProps) {
+export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const hasAutoloadedRef = useRef(false);
+
   const [isPlaying, setIsPlaying] = useState(false);
-  const searchParams = useSearchParams(); // <--- Pega os parâmetros da URL
-  const hasAutoloadedRef = useRef(false); // <--- Evita carregar duas vezes
   
-  // Estados de UI
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [loadStatus, setLoadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [newAchievement, setNewAchievement] = useState<string | null>(null);
+  
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // --- HTML DO IFRAME (SANDBOX) ---
   const getIframeContent = () => {
     const systemCode = (() => {
       switch (game.console_type) {
@@ -54,13 +58,17 @@ export function GameEmulator({ game }: GameEmulatorProps) {
             window.EJS_pathtodata = 'https://cdn.jsdelivr.net/gh/ethanaobrien/emulatorjs@main/data/';
             window.EJS_startOnLoaded = true;
             window.EJS_backgroundColor = '#000000';
-            window.EJS_b_save = true;
-            window.EJS_b_load = false;
+            
+            // Habilita botão de save na UI do emulador para interceptarmos
+            window.EJS_b_save = true; 
+            window.EJS_b_load = false; 
 
+            // INTERCEPTADOR DE SAVE
             window.EJS_onSaveState = function(data) {
               try {
                 const stateData = data.state || data;
                 const blob = new Blob([stateData], { type: 'application/octet-stream' });
+                
                 const reader = new FileReader();
                 reader.onload = function() {
                   window.parent.postMessage({ type: 'SAVE_STATE_FROM_EMULATOR', buffer: reader.result }, '*');
@@ -69,16 +77,17 @@ export function GameEmulator({ game }: GameEmulatorProps) {
               } catch (e) {
                 console.error('Erro no iframe save:', e);
               }
-              return false;
+              return false; // Bloqueia download nativo do navegador
             };
 
+            // NOTIFICAÇÃO DE START
             window.EJS_onGameStart = function() {
               window.parent.postMessage({ type: 'GAME_STARTED' }, '*');
             };
 
+            // LISTENER DE LOAD (Recebe do React)
             window.addEventListener('message', function(e) {
               if (e.data.type === 'LOAD_SAVE_INTO_EMULATOR') {
-                console.log('📦 Iframe: Load Command Received');
                 try {
                   const u8array = new Uint8Array(e.data.buffer);
                   if (window.EJS_emulator) {
@@ -92,14 +101,19 @@ export function GameEmulator({ game }: GameEmulatorProps) {
               }
             });
           </script>
+          
           <script src="https://cdn.jsdelivr.net/gh/ethanaobrien/emulatorjs@main/data/loader.js"></script>
         </body>
       </html>
     `;
   };
 
-  // --- FUNÇÃO DE LOAD (USADA NO BOTÃO E NO AUTOLOAD) ---
   const handleLoadClick = useCallback(async () => {
+    if (isGuest) {
+      setShowLoginModal(true);
+      return;
+    }
+
     setLoadStatus('loading');
     setErrorMessage('');
     
@@ -132,10 +146,15 @@ export function GameEmulator({ game }: GameEmulatorProps) {
       setLoadStatus('error');
       setTimeout(() => setLoadStatus('idle'), 3000);
     }
-  }, [game.id]);
+  }, [game.id, isGuest]);
 
-  // --- HANDLE SAVE ---
   const handleSaveFromIframe = useCallback(async (arrayBuffer: ArrayBuffer) => {
+    if (isGuest) {
+      console.log("🔒 Visitante tentou salvar. Mostrando convite.");
+      setShowLoginModal(true);
+      return;
+    }
+
     setSaveStatus('saving');
     try {
       const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
@@ -155,9 +174,8 @@ export function GameEmulator({ game }: GameEmulatorProps) {
       setErrorMessage(error.message);
       setTimeout(() => setSaveStatus('idle'), 5000);
     }
-  }, [game.id]);
+  }, [game.id, isGuest]);
 
-  // --- LISTENER DE MENSAGENS E AUTOLOAD ---
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (!event.data) return;
@@ -165,14 +183,10 @@ export function GameEmulator({ game }: GameEmulatorProps) {
       if (event.data.type === 'GAME_STARTED') {
         setIsPlaying(true);
 
-        // --- LÓGICA DE AUTOLOAD ---
         const shouldAutoload = searchParams.get('autoload') === 'true';
-        
-        if (shouldAutoload && !hasAutoloadedRef.current) {
-          console.log("🔄 Autoload detectado! Iniciando carregamento...");
+        if (shouldAutoload && !hasAutoloadedRef.current && !isGuest) {
+          console.log("🔄 Autoload detectado!");
           hasAutoloadedRef.current = true;
-          
-          // Espera 1s para garantir que o emulador está respirando
           setTimeout(() => {
             handleLoadClick();
           }, 1000);
@@ -186,13 +200,12 @@ export function GameEmulator({ game }: GameEmulatorProps) {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [handleSaveFromIframe, handleLoadClick, searchParams]);
+  }, [handleSaveFromIframe, handleLoadClick, searchParams, isGuest]);
 
 
-  // --- GAMIFICAÇÃO ---
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isPlaying) {
+    if (isPlaying && !isGuest) {
       interval = setInterval(async () => {
         const unlocked = await incrementPlaytime(60);
         if (unlocked) {
@@ -202,11 +215,16 @@ export function GameEmulator({ game }: GameEmulatorProps) {
       }, 60000);
     }
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [isPlaying, isGuest]);
+
+  const handleGoToLogin = () => {
+    router.push('/login');
+  };
 
   return (
     <div className="flex flex-col gap-4">
       <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-background-tertiary bg-black shadow-2xl">
+        
         <iframe
           ref={iframeRef}
           srcDoc={getIframeContent()}
@@ -222,7 +240,6 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           </div>
         )}
 
-        {/* Feedback Save */}
         {saveStatus !== 'idle' && (
           <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2
             ${saveStatus === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' : 'bg-background-card/90 border-white/10 text-white'}`}>
@@ -232,7 +249,6 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           </div>
         )}
 
-        {/* Feedback Load */}
         {loadStatus !== 'idle' && (
           <div className={`absolute top-16 right-4 z-20 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2
             ${loadStatus === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' : 'bg-blue-950/90 border-blue-500/50 text-blue-200'}`}>
@@ -242,7 +258,6 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           </div>
         )}
 
-        {/* Toast Conquista */}
         {newAchievement && (
           <div className="absolute top-4 left-4 z-30 flex items-center gap-4 rounded-xl border border-brand-primary/50 bg-black/90 p-4 shadow-glow animate-in slide-in-from-top-4 duration-700">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-orange-600 text-white shadow-lg animate-bounce">
@@ -263,7 +278,9 @@ export function GameEmulator({ game }: GameEmulatorProps) {
             Como Salvar
           </span>
           <span className="text-xs text-text-muted">
-            Use o ícone de disquete (<span className="text-white">💾</span>) na barra do jogo.
+             {isGuest 
+               ? "Crie uma conta para salvar seu progresso na nuvem." 
+               : "Use o ícone de disquete (💾) dentro do jogo. O save é automático."}
           </span>
         </div>
 
@@ -272,14 +289,25 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           disabled={loadStatus === 'loading' || !isPlaying}
           className="flex items-center gap-2 rounded-md bg-background-secondary px-4 py-2 text-sm font-medium text-text-primary hover:bg-background-tertiary hover:text-white transition-colors border border-background-tertiary disabled:opacity-50"
         >
-          {loadStatus === 'loading' ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+          {isGuest ? (
+             <><LogIn size={16} /> Entrar para Salvar</>
           ) : (
-            <DownloadCloud className="h-4 w-4 text-brand-primary" />
+             <><DownloadCloud className="h-4 w-4 text-brand-primary" /> Recarregar da Nuvem</>
           )}
-          Recarregar da Nuvem
         </button>
       </div>
+
+      <ConfirmationModal 
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onConfirm={handleGoToLogin}
+        title="Crie sua conta para salvar!"
+        description="Visitantes podem jogar à vontade, mas o progresso é perdido ao fechar a aba. Crie uma conta gratuita para habilitar o salvamento na nuvem e continuar de onde parou em qualquer lugar."
+        isLoading={false}
+        variant="primary"
+        confirmLabel="Criar Conta / Login"
+        cancelLabel="Jogar sem salvar"
+      />
     </div>
   );
 }
