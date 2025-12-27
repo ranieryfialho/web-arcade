@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, MouseEvent } from 'react';
-import { Loader2, Save, CheckCircle2, CloudUpload, AlertTriangle, Trophy, RotateCcw, DownloadCloud } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Loader2, Save, CheckCircle2, AlertTriangle, Trophy, DownloadCloud } from 'lucide-react';
 import { Database } from '@/types/database.types';
 import { getLatestSave, uploadSaveState, incrementPlaytime } from '@/app/play/actions';
 
@@ -12,200 +12,184 @@ interface GameEmulatorProps {
 }
 
 export function GameEmulator({ game }: GameEmulatorProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isLoadedRef = useRef(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   
-  // Estados para feedback visual
+  // Estados de UI
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [loadStatus, setLoadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [newAchievement, setNewAchievement] = useState<string | null>(null);
 
-  const getSystemCode = (consoleType: string) => {
-    switch (consoleType) {
-      case 'SNES': return 'snes';
-      case 'MEGA_DRIVE': return 'segaMD';
-      case 'GBA': return 'gba';
-      default: return '';
-    }
+  // --- 1. CONSTRUÇÃO DO HTML ISOLADO (SANDBOX) ---
+  // Isso cria uma "página web" completa dentro do componente
+  const getIframeContent = () => {
+    const systemCode = (() => {
+      switch (game.console_type) {
+        case 'SNES': return 'snes';
+        case 'MEGA_DRIVE': return 'segaMD';
+        case 'GBA': return 'gba';
+        default: return '';
+      }
+    })();
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { margin: 0; padding: 0; background-color: #000; overflow: hidden; height: 100vh; width: 100vw; }
+            #game-container { width: 100%; height: 100%; }
+          </style>
+        </head>
+        <body>
+          <div id="game-container"></div>
+          
+          <script>
+            // Configuração do Emulador (Rodando isolado)
+            window.EJS_player = '#game-container';
+            window.EJS_core = '${systemCode}';
+            window.EJS_gameUrl = '${game.rom_url}';
+            window.EJS_pathtodata = 'https://cdn.jsdelivr.net/gh/ethanaobrien/emulatorjs@main/data/';
+            window.EJS_startOnLoaded = true;
+            window.EJS_backgroundColor = '#000000';
+            window.EJS_b_save = true;
+            window.EJS_b_load = false; // Desativa load nativo
+
+            // INTERCEPTADOR DE SAVE (Envia para o Pai/React)
+            window.EJS_onSaveState = function(data) {
+              try {
+                // Converte o objeto do emulador para Blob e depois para ArrayBuffer
+                const stateData = data.state || data;
+                const blob = new Blob([stateData], { type: 'application/octet-stream' });
+                
+                const reader = new FileReader();
+                reader.onload = function() {
+                  // Envia mensagem para o React: "Ei, tenho um save aqui!"
+                  window.parent.postMessage({ type: 'SAVE_STATE_FROM_EMULATOR', buffer: reader.result }, '*');
+                };
+                reader.readAsArrayBuffer(blob);
+              } catch (e) {
+                console.error('Erro no iframe save:', e);
+              }
+              return false; // Bloqueia download nativo
+            };
+
+            // NOTIFICAÇÃO DE INÍCIO
+            window.EJS_onGameStart = function() {
+              window.parent.postMessage({ type: 'GAME_STARTED' }, '*');
+            };
+
+            // RECEBEDOR DE LOAD (Ouve o Pai/React)
+            window.addEventListener('message', function(e) {
+              if (e.data.type === 'LOAD_SAVE_INTO_EMULATOR') {
+                console.log('📦 Iframe: Recebido comando de Load');
+                try {
+                  const u8array = new Uint8Array(e.data.buffer);
+                  if (window.EJS_emulator) {
+                     // Tenta carregar usando as APIs conhecidas
+                     if (typeof window.EJS_emulator.loadState === 'function') {
+                        window.EJS_emulator.loadState(u8array);
+                     } else if (window.EJS_emulator.gameManager && typeof window.EJS_emulator.gameManager.loadState === 'function') {
+                        window.EJS_emulator.gameManager.loadState(u8array);
+                     }
+                  }
+                } catch(err) { console.error(err); }
+              }
+            });
+          </script>
+          
+          <script src="https://cdn.jsdelivr.net/gh/ethanaobrien/emulatorjs@main/data/loader.js"></script>
+        </body>
+      </html>
+    `;
   };
 
-  // --- FUNÇÃO DE CARREGAR (MANUAL) ---
-  const handleLoadClick = async (e: MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault(); 
-    e.stopPropagation();
-
-    setLoadStatus('loading');
-    try {
-      const signedUrl = await getLatestSave(game.id);
-      
-      if (!signedUrl) {
-        setErrorMessage("Nenhum save encontrado.");
-        setLoadStatus('error'); 
-        setTimeout(() => setLoadStatus('idle'), 3000);
-        return; 
-      }
-
-      console.log("☁️ Save encontrado. Baixando...", signedUrl);
-      
-      const response = await fetch(signedUrl);
-      const arrayBuffer = await response.arrayBuffer(); 
-      const u8array = new Uint8Array(arrayBuffer); 
-
-      // @ts-ignore
-      const emulator = window.EJS_emulator;
-
-      if (emulator) {
-        console.log("🎮 Injetando save no emulador...");
-        
-        if (typeof emulator.loadState === 'function') {
-           emulator.loadState(u8array);
-        } else if (emulator.gameManager && typeof emulator.gameManager.loadState === 'function') {
-           emulator.gameManager.loadState(u8array);
-        } else {
-           console.warn("⚠️ Core não suporta loadState dinâmico.");
-           setErrorMessage("Erro: Core incompatível.");
-           setLoadStatus('error');
-           return;
-        }
-        
-        setLoadStatus('success');
-        setTimeout(() => setLoadStatus('idle'), 3000);
-      }
-    } catch (error) {
-      console.error("❌ Erro ao carregar save:", error);
-      setLoadStatus('error');
-      setTimeout(() => setLoadStatus('idle'), 3000);
-    }
-  };
-
-  // Processa o upload
-  const processUpload = async (blob: Blob) => {
+  // --- 2. COMUNICAÇÃO (REACT -> IFRAME) ---
+  
+  // Função para processar o Save vindo do Iframe
+  const handleSaveFromIframe = useCallback(async (arrayBuffer: ArrayBuffer) => {
     setSaveStatus('saving');
-    setErrorMessage('');
-    
     try {
-      console.log("☁️ Enviando save para o Supabase...");
+      const blob = new Blob([arrayBuffer], { type: 'application/octet-stream' });
       const formData = new FormData();
       formData.append('file', blob);
       formData.append('gameId', game.id);
 
       const result = await uploadSaveState(formData);
-
       if (result.error) throw new Error(result.error);
 
-      console.log("✅ Salvo com sucesso na nuvem!");
+      console.log("✅ React: Save salvo na nuvem!");
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 4000);
     } catch (error: any) {
-      console.error("❌ Erro no upload:", error);
+      console.error("❌ Erro upload:", error);
       setSaveStatus('error');
-      setErrorMessage(error.message || 'Erro desconhecido');
+      setErrorMessage(error.message);
       setTimeout(() => setSaveStatus('idle'), 5000);
+    }
+  }, [game.id]);
+
+  // Listener Global de Mensagens (Ouve o Iframe)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Ignora mensagens que não são nossas
+      if (!event.data) return;
+
+      if (event.data.type === 'GAME_STARTED') {
+        setIsPlaying(true);
+      }
+      
+      if (event.data.type === 'SAVE_STATE_FROM_EMULATOR' && event.data.buffer) {
+        console.log("💾 React: Recebido save do Iframe");
+        handleSaveFromIframe(event.data.buffer);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [handleSaveFromIframe]);
+
+
+  // --- 3. FUNÇÃO DE LOAD (REACT -> IFRAME) ---
+  const handleLoadClick = async () => {
+    setLoadStatus('loading');
+    setErrorMessage('');
+    
+    try {
+      const signedUrl = await getLatestSave(game.id);
+      
+      if (!signedUrl) {
+        setErrorMessage("Nenhum save encontrado.");
+        setLoadStatus('error');
+        setTimeout(() => setLoadStatus('idle'), 3000);
+        return;
+      }
+
+      console.log("☁️ Baixando save da nuvem...");
+      const response = await fetch(signedUrl);
+      const arrayBuffer = await response.arrayBuffer();
+
+      // Mágica: Envia o arquivo binário para dentro do Iframe
+      if (iframeRef.current && iframeRef.current.contentWindow) {
+        console.log("📤 Enviando save para o Iframe...");
+        iframeRef.current.contentWindow.postMessage({
+          type: 'LOAD_SAVE_INTO_EMULATOR',
+          buffer: arrayBuffer
+        }, '*');
+        
+        setLoadStatus('success');
+        setTimeout(() => setLoadStatus('idle'), 3000);
+      }
+    } catch (error) {
+      console.error("Erro no load:", error);
+      setLoadStatus('error');
+      setTimeout(() => setLoadStatus('idle'), 3000);
     }
   };
 
-  // --- EFEITO PRINCIPAL ---
-  useEffect(() => {
-    if (isLoadedRef.current || !containerRef.current) return;
-    isLoadedRef.current = true;
 
-    // Configuração Global
-    // @ts-ignore
-    window.EJS_player = '#game-container';
-    // @ts-ignore
-    window.EJS_gameUrl = game.rom_url;
-    // @ts-ignore
-    window.EJS_core = getSystemCode(game.console_type);
-    // @ts-ignore
-    window.EJS_pathtodata = 'https://cdn.jsdelivr.net/gh/ethanaobrien/emulatorjs@main/data/';
-    // @ts-ignore
-    window.EJS_backgroundColor = '#0a0a0a';
-    // @ts-ignore
-    window.EJS_startOnLoaded = true;
-    
-    // UI Config
-    // @ts-ignore
-    window.EJS_b_save = true; 
-    // @ts-ignore
-    window.EJS_b_load = false; 
-
-    // Interceptador de Save
-    // @ts-ignore
-    window.EJS_onSaveState = (data: any) => {
-      try {
-        const actualData = data.state || data;
-        if (actualData) {
-          const blob = new Blob([actualData], { type: 'application/octet-stream' });
-          processUpload(blob);
-        }
-      } catch (e) {
-        console.error("Erro no interceptador:", e);
-      }
-      return false; 
-    };
-
-    // @ts-ignore
-    window.EJS_onGameStart = () => {
-      setIsPlaying(true);
-    };
-
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/gh/ethanaobrien/emulatorjs@main/data/loader.js';
-    script.async = true;
-    document.body.appendChild(script);
-
-    // --- LIMPEZA NUCLEAR (CORREÇÃO DE ÁUDIO GBA/SNES) ---
-    return () => {
-       console.log("☢️ Executando Limpeza Nuclear do Emulador...");
-       
-       // 1. Tenta acessar a instância global
-       // @ts-ignore
-       const instance = window.EJS_emulator;
-
-       if (instance) {
-           try {
-               // Força Mudo e Pause antes de destruir
-               if (typeof instance.setVolume === 'function') instance.setVolume(0);
-               if (typeof instance.pause === 'function') instance.pause();
-               // Destrói
-               if (typeof instance.destroy === 'function') instance.destroy();
-           } catch(e) {
-               console.warn("Erro ao tentar destruir instância:", e);
-           }
-       }
-
-       // 2. Limpa variáveis globais
-       // @ts-ignore
-       window.EJS_emulator = null;
-       // @ts-ignore
-       window.EJS_onSaveState = null;
-       // @ts-ignore
-       window.EJS_onGameStart = null;
-       // @ts-ignore
-       window.EJS_player = null;
-
-       // 3. REMOVE SCRIPTS INJETADOS (CRUCIAL PARA GBA)
-       // O Emulador injeta scripts no <head> ou <body> que continuam rodando. Vamos caçá-los.
-       const scripts = document.querySelectorAll('script');
-       scripts.forEach(s => {
-           if (s.src && (s.src.includes('emulatorjs') || s.src.includes('data/loader.js'))) {
-               s.remove();
-           }
-       });
-       
-       // 4. Limpa o container visual
-       if (containerRef.current) {
-           containerRef.current.innerHTML = '';
-       }
-
-       isLoadedRef.current = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [game.id, game.rom_url, game.console_type]); 
-
-  // Heartbeat
+  // --- 4. GAMIFICAÇÃO (HEARTBEAT) ---
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isPlaying) {
@@ -215,7 +199,7 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           setNewAchievement(unlocked.title);
           setTimeout(() => setNewAchievement(null), 6000);
         }
-      }, 60000); 
+      }, 60000);
     }
     return () => clearInterval(interval);
   }, [isPlaying]);
@@ -223,32 +207,40 @@ export function GameEmulator({ game }: GameEmulatorProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-background-tertiary bg-black shadow-2xl">
-        <div id="game-container" ref={containerRef} className="h-full w-full" />
         
+        {/* O IFRAME MÁGICO - Tudo roda aqui dentro */}
+        <iframe
+          ref={iframeRef}
+          srcDoc={getIframeContent()}
+          title="Emulator Sandbox"
+          className="h-full w-full border-none"
+          allow="autoplay; fullscreen; gamepad"
+        />
+        
+        {/* Loading Overlay (Enquanto o jogo não começa dentro do iframe) */}
         {!isPlaying && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white bg-black/90 z-10">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white bg-black/90 z-10 pointer-events-none">
             <Loader2 className="h-10 w-10 animate-spin text-brand-primary" />
             <p className="font-mono text-sm animate-pulse">Iniciando Sistema...</p>
           </div>
         )}
 
-        {/* Feedback de Save */}
+        {/* Feedback Visual (Toasts) */}
         {saveStatus !== 'idle' && (
           <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2
             ${saveStatus === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' : 'bg-background-card/90 border-white/10 text-white'}`}>
-            {saveStatus === 'saving' && <><Loader2 className="h-4 w-4 animate-spin text-brand-primary" /><span>Salvando na nuvem...</span></>}
-            {saveStatus === 'success' && <><CheckCircle2 className="h-4 w-4 text-accent-success" /><span>Salvo com sucesso!</span></>}
-            {saveStatus === 'error' && <><AlertTriangle className="h-4 w-4 text-accent-danger" /><span>Erro ao salvar.</span></>}
+            {saveStatus === 'saving' && <><Loader2 className="h-4 w-4 animate-spin text-brand-primary" /><span>Salvando...</span></>}
+            {saveStatus === 'success' && <><CheckCircle2 className="h-4 w-4 text-accent-success" /><span>Salvo!</span></>}
+            {saveStatus === 'error' && <><AlertTriangle className="h-4 w-4 text-accent-danger" /><span>Erro ao salvar</span></>}
           </div>
         )}
 
-        {/* Feedback de Load */}
         {loadStatus !== 'idle' && (
           <div className={`absolute top-16 right-4 z-20 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2
             ${loadStatus === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' : 'bg-blue-950/90 border-blue-500/50 text-blue-200'}`}>
-            {loadStatus === 'loading' && <><Loader2 className="h-4 w-4 animate-spin" /><span>Carregando da nuvem...</span></>}
-            {loadStatus === 'success' && <><RotateCcw className="h-4 w-4" /><span>Jogo restaurado!</span></>}
-            {loadStatus === 'error' && <><AlertTriangle className="h-4 w-4" /><span>{errorMessage || 'Falha ao carregar.'}</span></>}
+            {loadStatus === 'loading' && <><Loader2 className="h-4 w-4 animate-spin" /><span>Carregando...</span></>}
+            {loadStatus === 'success' && <><CheckCircle2 className="h-4 w-4" /><span>Carregado!</span></>}
+            {loadStatus === 'error' && <><AlertTriangle className="h-4 w-4" /><span>Erro.</span></>}
           </div>
         )}
 
@@ -273,12 +265,11 @@ export function GameEmulator({ game }: GameEmulatorProps) {
             Como Salvar
           </span>
           <span className="text-xs text-text-muted">
-            Use o ícone de disquete (<span className="text-white">💾</span>) na barra do jogo. O sistema salva na nuvem automaticamente.
+            Use o ícone de disquete (<span className="text-white">💾</span>) na barra do jogo.
           </span>
         </div>
 
         <button
-          type="button"
           onClick={handleLoadClick}
           disabled={loadStatus === 'loading' || !isPlaying}
           className="flex items-center gap-2 rounded-md bg-background-secondary px-4 py-2 text-sm font-medium text-text-primary hover:bg-background-tertiary hover:text-white transition-colors border border-background-tertiary disabled:opacity-50"
