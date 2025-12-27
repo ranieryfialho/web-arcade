@@ -33,7 +33,6 @@ export function GameEmulator({ game }: GameEmulatorProps) {
 
   // --- FUNÇÃO DE CARREGAR (MANUAL) ---
   const handleLoadClick = async (e: MouseEvent<HTMLButtonElement>) => {
-    // 1. Bloqueia qualquer comportamento padrão do navegador (como recarregar página)
     e.preventDefault(); 
     e.stopPropagation();
 
@@ -157,27 +156,52 @@ export function GameEmulator({ game }: GameEmulatorProps) {
     script.async = true;
     document.body.appendChild(script);
 
-    // --- CLEANUP ---
+    // --- LIMPEZA NUCLEAR (CORREÇÃO DE ÁUDIO GBA/SNES) ---
     return () => {
-       console.log("🧹 Limpando emulador...");
+       console.log("☢️ Executando Limpeza Nuclear do Emulador...");
+       
+       // 1. Tenta acessar a instância global
        // @ts-ignore
-       if (window.EJS_emulator && typeof window.EJS_emulator.destroy === 'function') {
-           // @ts-ignore
-           window.EJS_emulator.destroy();
+       const instance = window.EJS_emulator;
+
+       if (instance) {
+           try {
+               // Força Mudo e Pause antes de destruir
+               if (typeof instance.setVolume === 'function') instance.setVolume(0);
+               if (typeof instance.pause === 'function') instance.pause();
+               // Destrói
+               if (typeof instance.destroy === 'function') instance.destroy();
+           } catch(e) {
+               console.warn("Erro ao tentar destruir instância:", e);
+           }
        }
+
+       // 2. Limpa variáveis globais
+       // @ts-ignore
+       window.EJS_emulator = null;
        // @ts-ignore
        window.EJS_onSaveState = null;
        // @ts-ignore
        window.EJS_onGameStart = null;
        // @ts-ignore
-       window.EJS_emulator = null;
+       window.EJS_player = null;
+
+       // 3. REMOVE SCRIPTS INJETADOS (CRUCIAL PARA GBA)
+       // O Emulador injeta scripts no <head> ou <body> que continuam rodando. Vamos caçá-los.
+       const scripts = document.querySelectorAll('script');
+       scripts.forEach(s => {
+           if (s.src && (s.src.includes('emulatorjs') || s.src.includes('data/loader.js'))) {
+               s.remove();
+           }
+       });
        
-       if (document.body.contains(script)) {
-         document.body.removeChild(script);
+       // 4. Limpa o container visual
+       if (containerRef.current) {
+           containerRef.current.innerHTML = '';
        }
+
        isLoadedRef.current = false;
     };
-    // Dependências primitivas para evitar reload desnecessário
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.id, game.rom_url, game.console_type]); 
 
@@ -253,10 +277,9 @@ export function GameEmulator({ game }: GameEmulatorProps) {
           </span>
         </div>
 
-        {/* BOTÃO CORRIGIDO */}
         <button
-          type="button" // <--- TRAVA O COMPORTAMENTO DE SUBMIT
-          onClick={handleLoadClick} // <--- CHAMA A FUNÇÃO COM PREVENT DEFAULT
+          type="button"
+          onClick={handleLoadClick}
           disabled={loadStatus === 'loading' || !isPlaying}
           className="flex items-center gap-2 rounded-md bg-background-secondary px-4 py-2 text-sm font-medium text-text-primary hover:bg-background-tertiary hover:text-white transition-colors border border-background-tertiary disabled:opacity-50"
         >
