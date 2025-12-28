@@ -46,8 +46,8 @@ export async function createGame(formData: FormData) {
     if (romError) throw new Error('Erro ao subir ROM: ' + romError.message)
     const { data: romUrlData } = supabase.storage.from('games-assets').getPublicUrl(romPath)
 
-    const { error: dbError } = await supabase
-      .from('games')
+    const { error: dbError } = await (supabase
+      .from('games') as any)
       .insert({
         title,
         console_type,
@@ -80,7 +80,8 @@ export async function deleteGame(gameId: string) {
   }
 
   try {
-    const { data: game } = await supabase.from('games').select('*').eq('id', gameId).single();
+    const { data: game } = await (supabase.from('games') as any)
+      .select('*').eq('id', gameId).single();
     
     if (game) {
       const extractPath = (url: string) => {
@@ -95,7 +96,9 @@ export async function deleteGame(gameId: string) {
       if (romPath) await supabase.storage.from('games-assets').remove([romPath]);
     }
 
-    const { error } = await supabase.from('games').delete().eq('id', gameId);
+    const { error } = await (supabase.from('games') as any)
+      .delete().eq('id', gameId);
+      
     if (error) throw error;
 
   } catch (error: any) {
@@ -171,7 +174,9 @@ export async function updateGame(formData: FormData) {
     }
 
     console.log('📝 Executando update no banco...');
-    const { error: dbError } = await supabase.from('games').update(updateData).eq('id', id);
+    
+    const { error: dbError } = await (supabase.from('games') as any)
+      .update(updateData).eq('id', id);
     
     if (dbError) {
       console.error('❌ Erro do Banco:', dbError.message);
@@ -185,7 +190,6 @@ export async function updateGame(formData: FormData) {
     return { error: error.message };
   }
 
-  // 6. Revalidação e Redirecionamento
   revalidatePath('/admin');
   revalidatePath('/shelf');
   redirect('/admin');
