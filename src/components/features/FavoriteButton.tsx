@@ -16,6 +16,7 @@ export function FavoriteButton({ gameId, initialIsFavorite }: FavoriteButtonProp
   const handleToggle = async () => {
     if (isLoading) return;
     
+    // Optimistic Update (Muda visualmente antes de confirmar no banco)
     const newState = !isFavorite;
     setIsFavorite(newState);
     setIsLoading(true);
@@ -23,6 +24,7 @@ export function FavoriteButton({ gameId, initialIsFavorite }: FavoriteButtonProp
     try {
       await toggleFavorite(gameId);
     } catch (error) {
+      // Se der erro, reverte
       setIsFavorite(!newState);
       console.error(error);
     } finally {

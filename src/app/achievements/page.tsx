@@ -1,69 +1,123 @@
-import { Trophy } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { AchievementCard } from '@/components/features/AchievementCard';
 import { redirect } from 'next/navigation';
+import { Trophy, Lock, CheckCircle2, Crown, Timer, Gamepad2, Heart, Save, Map, Book, Zap, Battery, Smartphone, Disc, Award, Star } from 'lucide-react';
 
-export const metadata = {
-  title: 'Conquistas | Web Arcade',
-  description: 'Sua sala de troféus digital.',
+const iconMap: any = {
+  'trophy': Trophy,
+  'timer': Timer,
+  'watch': Timer,
+  'gamepad': Gamepad2,
+  'heart': Heart,
+  'star': Star,
+  'save': Save,
+  'map': Map,
+  'book': Book,
+  'zap': Zap,
+  'battery': Battery,
+  'smartphone': Smartphone,
+  'disc': Disc,
+  'award': Award,
+  'crown': Crown,
+  'battery-charging': Battery,
+  'shield': CheckCircle2,
+  'flag': CheckCircle2,
+  'repeat': CheckCircle2,
+  'default': Trophy
 };
 
 export default async function AchievementsPage() {
   const supabase = await createClient();
 
-  // 1. Verifica usuário
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    redirect('/login');
-  }
+  if (!user) redirect('/login');
 
-  // 2. Busca todas as conquistas do sistema
   const { data: allAchievements } = await supabase
     .from('achievements')
     .select('*')
-    .order('target_value', { ascending: true });
+    .order('threshold', { ascending: true });
 
-  // 3. Busca as conquistas que o usuário já desbloqueou
-  const { data: myUnlocks } = await supabase
+  const { data: userUnlocks } = await supabase
     .from('user_achievements')
     .select('achievement_id, unlocked_at')
     .eq('user_id', user.id);
 
-  // Mapa auxiliar para busca rápida (ID -> Data)
-  const unlockMap = new Map(
-    myUnlocks?.map((u) => [u.achievement_id, u.unlocked_at])
-  );
+  const unlockedSet = new Set(userUnlocks?.map(u => u.achievement_id));
+
+  const totalCount = allAchievements?.length || 0;
+  const unlockedCount = userUnlocks?.length || 0;
+  const progressPercent = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
 
   return (
-    <div className="container mx-auto min-h-screen px-4 py-8">
-      {/* Header */}
-      <div className="mb-10 border-b border-background-tertiary pb-6">
-        <h1 className="flex items-center gap-3 font-mono text-4xl font-bold text-text-primary">
-          <Trophy className="text-brand-secondary" size={40} />
-          Sala de Troféus
-        </h1>
-        <p className="mt-2 text-text-secondary">
-          Acompanhe seu progresso e exiba suas medalhas de jogador retro.
-        </p>
-      </div>
-
-      {/* Grid de Conquistas */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {allAchievements?.map((achievement) => (
-          <AchievementCard
-            key={achievement.id}
-            achievement={achievement}
-            unlockedAt={unlockMap.get(achievement.id)}
-          />
-        ))}
-      </div>
-
-      {/* Estado Vazio (Se não houver conquistas cadastradas no sistema) */}
-      {(!allAchievements || allAchievements.length === 0) && (
-        <div className="text-center text-text-muted py-10">
-          O sistema de conquistas está sendo calibrado...
+    <div className="min-h-screen bg-background-primary px-4 py-8">
+      <div className="container mx-auto max-w-5xl">
+        
+        <div className="mb-10 flex flex-col items-center text-center">
+          <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-brand-primary/20 text-brand-primary shadow-glow">
+            <Trophy size={40} />
+          </div>
+          <h1 className="text-3xl font-bold text-text-primary">Sala de Troféus</h1>
+          <p className="mt-2 text-text-secondary">Sua jornada lendária através dos jogos retro.</p>
+          
+          <div className="mt-6 w-full max-w-md">
+            <div className="flex justify-between text-sm font-bold mb-2">
+              <span className="text-text-primary">Progresso Total</span>
+              <span className="text-brand-primary">{unlockedCount} / {totalCount}</span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-background-tertiary">
+              <div 
+                className="h-full bg-brand-primary transition-all duration-1000 ease-out" 
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {allAchievements?.map((ach) => {
+            const isUnlocked = unlockedSet.has(ach.id);
+            const IconComponent = iconMap[ach.icon_slug] || iconMap['default'];
+
+            return (
+              <div 
+                key={ach.id} 
+                className={`relative overflow-hidden rounded-xl border p-4 transition-all duration-300
+                  ${isUnlocked 
+                    ? 'border-brand-primary/50 bg-brand-primary/5 shadow-glow-sm' 
+                    : 'border-background-tertiary bg-background-card opacity-60 grayscale hover:opacity-100 hover:grayscale-0'
+                  }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg 
+                    ${isUnlocked ? 'bg-brand-primary text-white' : 'bg-background-tertiary text-text-muted'}`}>
+                    {isUnlocked ? <IconComponent size={24} /> : <Lock size={24} />}
+                  </div>
+
+                  <div>
+                    <h3 className={`font-bold ${isUnlocked ? 'text-text-primary' : 'text-text-secondary'}`}>
+                      {ach.title}
+                    </h3>
+                    <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                      {ach.description}
+                    </p>
+                    
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-brand-secondary bg-brand-secondary/10 px-2 py-1 rounded">
+                        +{ach.xp_reward} XP
+                      </span>
+                      {isUnlocked && (
+                        <span className="text-[10px] text-green-500 font-bold flex items-center gap-1">
+                          <CheckCircle2 size={10} /> Desbloqueado
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+      </div>
     </div>
   );
 }

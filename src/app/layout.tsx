@@ -1,23 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, Exo_2 } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
+import { Toaster } from "sonner";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const exo2 = Exo_2({
-  subsets: ["latin"],
-  variable: "--font-exo2",
-  display: "swap",
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Web Arcade | Retro Gaming Platform",
-  description: "Sua plataforma premium para emulação de jogos retro na nuvem.",
+  title: "Web Arcade",
+  description: "Sua biblioteca de jogos retro na nuvem.",
 };
 
 export default function RootLayout({
@@ -26,13 +17,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${exo2.variable}`}>
-      <body className="font-sans antialiased min-h-screen flex flex-col bg-background-primary text-text-primary selection:bg-brand-primary selection:text-white">
+    <html lang="pt-BR" className="dark">
+      <body className={`${inter.className} bg-background-primary text-text-primary min-h-screen flex flex-col`}>
         <Navbar />
         
-        <main className="flex-1 flex flex-col">
+        <main className="flex-1">
           {children}
         </main>
+        
+        <Toaster position="top-center" richColors theme="dark" />
       </body>
     </html>
   );
