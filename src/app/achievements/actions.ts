@@ -14,8 +14,8 @@ export async function toggleFeaturedAchievement(achievementId: string) {
 
   console.log(`🔄 Toggle featured para achievement: ${achievementId}`);
 
-  const { data: current, error: fetchError } = await supabase
-    .from('user_achievements')
+  const { data: current, error: fetchError } = await (supabase
+    .from('user_achievements') as any)
     .select('is_featured')
     .eq('user_id', user.id)
     .eq('achievement_id', achievementId)
@@ -31,9 +31,9 @@ export async function toggleFeaturedAchievement(achievementId: string) {
     return { error: "Conquista não encontrada" };
   }
 
-  const newValue = !(current as any).is_featured;
+  const newValue = !current.is_featured;
 
-  console.log(`📊 Estado atual: ${(current as any).is_featured} → Novo: ${newValue}`);
+  console.log(`📊 Estado atual: ${current.is_featured} → Novo: ${newValue}`);
 
   if (newValue === true) {
     const { count, error: countError } = await supabase
@@ -54,9 +54,8 @@ export async function toggleFeaturedAchievement(achievementId: string) {
     }
   }
 
-  // Atualizar
-  const { error: updateError } = await supabase
-    .from('user_achievements')
+  const { error: updateError } = await (supabase
+    .from('user_achievements') as any)
     .update({ is_featured: newValue })
     .eq('user_id', user.id)
     .eq('achievement_id', achievementId);
