@@ -7,11 +7,11 @@ import { checkAndUnlockAchievements } from '@/lib/achievements'
 export async function uploadSaveState(formData: FormData) {
   const supabase = await createClient()
   
-  const { data: { session }, error:  authError } = await supabase. auth.getSession()
+  const { data: { session }, error: authError } = await supabase.auth.getSession()
   
   if (authError || !session) {
-    console.error("❌ [Server Action] Falha de sessão:", authError?. message || "Sem sessão");
-    return { error: 'Sessão expirada.  Faça login novamente.' }
+    console.error("❌ [Server Action] Falha de sessão:", authError?.message || "Sem sessão");
+    return { error: 'Sessão expirada. Faça login novamente.' }
   }
 
   const user = session.user;
@@ -22,7 +22,7 @@ export async function uploadSaveState(formData: FormData) {
     return { error: 'Dados inválidos recebidos' }
   }
 
-  const filePath = `${user.id}/${gameId}. state`
+  const filePath = `${user.id}/${gameId}.state`
 
   const { error: uploadError } = await supabase
     .storage
@@ -37,8 +37,7 @@ export async function uploadSaveState(formData: FormData) {
     return { error: 'Erro ao salvar arquivo na nuvem' }
   }
 
-  const { data: existingSave } = await supabase
-    . from('user_saves')
+  const { data: existingSave } = await (supabase.from('user_saves') as any)
     .select('id')
     .eq('user_id', user.id)
     .eq('game_id', gameId)
@@ -47,8 +46,7 @@ export async function uploadSaveState(formData: FormData) {
   let dbError;
   
   if (existingSave) {
-    const { error } = await supabase
-      . from('user_saves')
+    const { error } = await (supabase.from('user_saves') as any)
       .update({
         save_file_url: filePath,
         last_played_at: new Date().toISOString()
@@ -56,12 +54,11 @@ export async function uploadSaveState(formData: FormData) {
       .eq('id', existingSave.id)
     dbError = error
   } else {
-    const { error } = await supabase
-      .from('user_saves')
+    const { error } = await (supabase.from('user_saves') as any)
       .insert({
         user_id: user.id,
         game_id: gameId,
-        save_file_url:  filePath,
+        save_file_url: filePath,
         last_played_at: new Date().toISOString()
       })
     dbError = error
@@ -75,7 +72,7 @@ export async function uploadSaveState(formData: FormData) {
   const newUnlocks = await checkAndUnlockAchievements();
 
   revalidatePath('/shelf')
-  return { success: true, newUnlocks:  newUnlocks || [] }
+  return { success: true, newUnlocks: newUnlocks || [] }
 }
 
 export async function getLatestSave(gameId: string) {
@@ -84,8 +81,7 @@ export async function getLatestSave(gameId: string) {
   
   if (!session) return null
 
-  const { data: saveRecord } = await supabase
-    .from('user_saves')
+  const { data: saveRecord } = await (supabase.from('user_saves') as any)
     .select('save_file_url')
     .eq('user_id', session.user.id)
     .eq('game_id', gameId)
@@ -96,9 +92,9 @@ export async function getLatestSave(gameId: string) {
   const { data: signedUrl } = await supabase
     .storage
     .from('user-saves')
-    .createSignedUrl(saveRecord. save_file_url, 3600)
+    .createSignedUrl(saveRecord.save_file_url, 3600)
 
-  return signedUrl?. signedUrl
+  return signedUrl?.signedUrl
 }
 
 export async function incrementPlaytime(seconds: number) {
@@ -108,8 +104,7 @@ export async function incrementPlaytime(seconds: number) {
   if (!session) return null
   const user = session.user
 
-  const { data:  profile } = await supabase
-    .from('profiles')
+  const { data: profile } = await (supabase.from('profiles') as any)
     .select('total_playtime_seconds')
     .eq('id', user.id)
     .single()
@@ -118,8 +113,7 @@ export async function incrementPlaytime(seconds: number) {
 
   const newTotal = (profile.total_playtime_seconds || 0) + seconds
 
-  await supabase
-    .from('profiles')
+  await (supabase.from('profiles') as any)
     .update({ total_playtime_seconds: newTotal })
     .eq('id', user.id)
 
@@ -135,20 +129,19 @@ export async function incrementPlaytime(seconds: number) {
 export async function toggleFavorite(gameId: string) {
   const supabase = await createClient()
   
-  const { data: { user } } = await supabase. auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return [] 
 
-  const { data: existing } = await supabase
-    .from('user_favorites')
+  const { data: existing } = await (supabase.from('user_favorites') as any)
     .select('id')
     .eq('user_id', user.id)
     .eq('game_id', gameId)
     .single()
 
   if (existing) {
-    await supabase. from('user_favorites').delete().eq('id', existing.id)
+    await (supabase.from('user_favorites') as any).delete().eq('id', existing.id)
   } else {
-    await supabase.from('user_favorites').insert({ user_id: user.id, game_id: gameId })
+    await (supabase.from('user_favorites') as any).insert({ user_id: user.id, game_id: gameId })
   }
 
   const newUnlocks = await checkAndUnlockAchievements()

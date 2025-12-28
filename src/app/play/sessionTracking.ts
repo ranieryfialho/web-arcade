@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { checkAndUnlockAchievements } from '@/lib/achievements';
 
-export async function trackGameSession(gameId:  string, consoleType: string) {
+export async function trackGameSession(gameId: string, consoleType: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -12,12 +12,11 @@ export async function trackGameSession(gameId:  string, consoleType: string) {
     return [];
   }
 
-  console.log(`🎮 Rastreando sessão:  ${gameId} (${consoleType})`);
+  console.log(`🎮 Rastreando sessão: ${gameId} (${consoleType})`);
 
-  const { error } = await supabase
-    .from('game_sessions')
+  const { error } = await (supabase.from('game_sessions') as any)
     .insert({
-      user_id:  user.id,
+      user_id: user.id,
       game_id: gameId,
       console_type: consoleType,
     });
@@ -29,7 +28,7 @@ export async function trackGameSession(gameId:  string, consoleType: string) {
 
   const newUnlocks = await checkAndUnlockAchievements();
   
-  console.log(`✅ Sessão criada.  Conquistas desbloqueadas: ${newUnlocks.length}`);
+  console.log(`✅ Sessão criada. Conquistas desbloqueadas: ${newUnlocks.length}`);
   
   return newUnlocks;
 }

@@ -12,8 +12,7 @@ export async function updateProfile(formData: FormData) {
   const username = formData.get('username') as string
   const avatar_url = formData.get('avatar_url') as string
 
-  const { error } = await supabase
-    .from('profiles')
+  const { error } = await (supabase.from('profiles') as any)
     .update({ 
       username, 
       avatar_url,
@@ -36,8 +35,7 @@ export async function deleteSave(saveId: string) {
 
   if (!user) return { error: 'Usuário não autenticado' }
 
-  const { data: save } = await supabase
-    .from('user_saves')
+  const { data: save } = await (supabase.from('user_saves') as any)
     .select('save_file_url')
     .eq('id', saveId)
     .eq('user_id', user.id)
@@ -47,8 +45,7 @@ export async function deleteSave(saveId: string) {
     await supabase.storage.from('user-saves').remove([save.save_file_url])
   }
 
-  const { error } = await supabase
-    .from('user_saves')
+  const { error } = await (supabase.from('user_saves') as any)
     .delete()
     .eq('id', saveId)
     .eq('user_id', user.id)
