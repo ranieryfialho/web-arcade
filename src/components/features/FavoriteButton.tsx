@@ -1,13 +1,12 @@
 'use client';
 
-import { Heart, Trophy } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { toggleFavorite } from '@/app/play/actions'; 
-import { toast } from 'sonner';
 import { useState } from 'react';
 
 interface FavoriteButtonProps {
   gameId: string;
-  initialIsFavorite: boolean;
+  initialIsFavorite:  boolean;
 }
 
 export function FavoriteButton({ gameId, initialIsFavorite }: FavoriteButtonProps) {
@@ -25,29 +24,22 @@ export function FavoriteButton({ gameId, initialIsFavorite }: FavoriteButtonProp
       const newUnlocks = await toggleFavorite(gameId);
 
       if (newUnlocks && newUnlocks.length > 0) {
-        newUnlocks.forEach((achievementTitle) => {
-          toast.success(`Conquista Desbloqueada: ${achievementTitle}`, {
-            icon: <Trophy className="text-yellow-500 h-5 w-5" />,
-            duration: 5000,
-            style: {
-              background: '#1a1a1a',
-              border: '1px solid #7c3aed',
-              color: '#fff'
-            }
+        const showAchievement = (window as any).__showAchievement;
+        
+        if (showAchievement) {
+          newUnlocks.forEach((achievementTitle, index) => {
+            setTimeout(() => {
+              showAchievement(achievementTitle);
+            }, index * 6500);
           });
-        });
-      } else {
-        if (!previousState) {
-          toast.success("Adicionado aos favoritos");
         } else {
-          toast.info("Removido dos favoritos");
+          console.warn('⚠️ GameEmulator não está disponível para exibir conquista');
         }
       }
 
     } catch (error) {
       console.error(error);
       setIsFavorite(previousState);
-      toast.error("Erro ao favoritar.");
     } finally {
       setLoading(false);
     }

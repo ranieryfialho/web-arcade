@@ -13,17 +13,17 @@ interface PlayPageProps {
 export async function generateMetadata({ params }: PlayPageProps) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data: game } = await supabase.from('games').select('title').eq('id', id).single();
+  const { data: game } = await supabase. from('games').select('title').eq('id', id).single();
   
   return {
-    title: game ? `Jogando ${game.title} | Web Arcade` : 'Jogo não encontrado',
+    title: game ?  `Jogando ${game.title} | Web Arcade` : 'Jogo não encontrado',
   };
 }
 
 export default async function PlayPage({ params }: PlayPageProps) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase. auth.getUser();
 
   // Busca o jogo (Público)
   const { data: game, error } = await supabase
@@ -64,8 +64,7 @@ export default async function PlayPage({ params }: PlayPageProps) {
           </Link>
           
           <div className="flex items-center gap-4">
-            {/* Esconde botão de favoritar se for visitante, ou mostra desativado */}
-            {!isGuest && <FavoriteButton gameId={game.id} initialIsFavorite={isFavorite} />}
+            {! isGuest && <FavoriteButton gameId={game. id} initialIsFavorite={isFavorite} />}
             
             <div className="flex items-center gap-3">
               <h1 className="font-mono text-lg font-bold text-text-primary hidden sm:block">
@@ -79,7 +78,6 @@ export default async function PlayPage({ params }: PlayPageProps) {
 
       <main className="flex-1 container mx-auto flex flex-col items-center justify-center p-4 lg:p-8">
         <div className="w-full max-w-5xl">
-          {/* Passamos a prop isGuest */}
           <GameEmulator game={game} isGuest={isGuest} />
           
           <div className="mt-6 flex items-start gap-4 rounded-lg bg-background-secondary p-4 border border-background-tertiary">
@@ -87,13 +85,13 @@ export default async function PlayPage({ params }: PlayPageProps) {
             <div>
               <h3 className="font-bold text-text-primary">Controles</h3>
               <p className="mt-1 text-sm text-text-secondary">
-                Setas para mover. 
+                Setas para mover.  
                 <span className="mx-1 px-1 bg-background-tertiary rounded text-xs">Z</span>
+                para A, 
                 <span className="mx-1 px-1 bg-background-tertiary rounded text-xs">X</span>
-                <span className="mx-1 px-1 bg-background-tertiary rounded text-xs">A</span>
-                <span className="mx-1 px-1 bg-background-tertiary rounded text-xs">S</span>
-                ação. 
-                <span className="mx-1 px-1 bg-background-tertiary rounded text-xs">Enter</span> Start.
+                para B.  
+                <span className="mx-1 px-1 bg-background-tertiary rounded text-xs">Enter</span>
+                para Start.
               </p>
             </div>
           </div>

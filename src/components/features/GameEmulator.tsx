@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Loader2, Save, CheckCircle2, AlertTriangle, Trophy, DownloadCloud, LogIn } from 'lucide-react';
-import { Database } from '@/types/database.types';
+import { Database } from '@/types/database. types';
 import { getLatestSave, uploadSaveState, incrementPlaytime } from '@/app/play/actions';
+import { trackGameSession } from '@/app/play/sessionTracking';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 
 type Game = Database['public']['Tables']['games']['Row'];
@@ -19,6 +20,7 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const hasAutoloadedRef = useRef(false);
+  const hasTrackedSessionRef = useRef(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
   
@@ -32,7 +34,7 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
   const getIframeContent = () => {
     const systemCode = (() => {
       switch (game.console_type) {
-        case 'SNES': return 'snes';
+        case 'SNES':  return 'snes';
         case 'MEGA_DRIVE': return 'segaMD';
         case 'GBA': return 'gba';
         default: return '';
@@ -53,9 +55,9 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
           
           <script>
             window.EJS_player = '#game-container';
-            window.EJS_core = '${systemCode}';
+            window. EJS_core = '${systemCode}';
             window.EJS_gameUrl = '${game.rom_url}';
-            window.EJS_pathtodata = 'https://cdn.jsdelivr.net/gh/ethanaobrien/emulatorjs@main/data/';
+            window. EJS_pathtodata = 'https://cdn.jsdelivr.net/gh/ethanaobrien/emulatorjs@main/data/';
             window.EJS_startOnLoaded = true;
             window.EJS_backgroundColor = '#000000';
             
@@ -87,14 +89,14 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
 
             // LISTENER DE LOAD (Recebe do React)
             window.addEventListener('message', function(e) {
-              if (e.data.type === 'LOAD_SAVE_INTO_EMULATOR') {
+              if (e.data. type === 'LOAD_SAVE_INTO_EMULATOR') {
                 try {
                   const u8array = new Uint8Array(e.data.buffer);
                   if (window.EJS_emulator) {
-                     if (typeof window.EJS_emulator.loadState === 'function') {
-                        window.EJS_emulator.loadState(u8array);
-                     } else if (window.EJS_emulator.gameManager && typeof window.EJS_emulator.gameManager.loadState === 'function') {
-                        window.EJS_emulator.gameManager.loadState(u8array);
+                     if (typeof window.EJS_emulator. loadState === 'function') {
+                        window.EJS_emulator. loadState(u8array);
+                     } else if (window.EJS_emulator.gameManager && typeof window.EJS_emulator. gameManager.loadState === 'function') {
+                        window. EJS_emulator.gameManager.loadState(u8array);
                      }
                   }
                 } catch(err) { console.error(err); }
@@ -120,7 +122,7 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
     try {
       const signedUrl = await getLatestSave(game.id);
       
-      if (!signedUrl) {
+      if (! signedUrl) {
         setErrorMessage("Nenhum save encontrado.");
         setLoadStatus('error');
         setTimeout(() => setLoadStatus('idle'), 3000);
@@ -150,7 +152,7 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
 
   const handleSaveFromIframe = useCallback(async (arrayBuffer: ArrayBuffer) => {
     if (isGuest) {
-      console.log("🔒 Visitante tentou salvar. Mostrando convite.");
+      console.log("🔒 Visitante tentou salvar.  Mostrando convite.");
       setShowLoginModal(true);
       return;
     }
@@ -167,8 +169,19 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
 
       console.log("✅ Save salvo na nuvem!");
       setSaveStatus('success');
+
+      // 🆕 Exibir conquistas de SAVES_MADE
+      if (result.newUnlocks && result.newUnlocks.length > 0) {
+        result.newUnlocks.forEach((title, index) => {
+          setTimeout(() => {
+            setNewAchievement(title);
+            setTimeout(() => setNewAchievement(null), 6000);
+          }, index * 6500);
+        });
+      }
+
       setTimeout(() => setSaveStatus('idle'), 4000);
-    } catch (error: any) {
+    } catch (error:  any) {
       console.error("❌ Erro upload:", error);
       setSaveStatus('error');
       setErrorMessage(error.message);
@@ -186,15 +199,15 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
         const shouldAutoload = searchParams.get('autoload') === 'true';
         if (shouldAutoload && !hasAutoloadedRef.current && !isGuest) {
           console.log("🔄 Autoload detectado!");
-          hasAutoloadedRef.current = true;
+          hasAutoloadedRef. current = true;
           setTimeout(() => {
             handleLoadClick();
           }, 1000);
         }
       }
       
-      if (event.data.type === 'SAVE_STATE_FROM_EMULATOR' && event.data.buffer) {
-        handleSaveFromIframe(event.data.buffer);
+      if (event.data. type === 'SAVE_STATE_FROM_EMULATOR' && event.data.buffer) {
+        handleSaveFromIframe(event. data.buffer);
       }
     };
 
@@ -205,17 +218,55 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
+    
     if (isPlaying && !isGuest) {
+      // 🆕 Rastrear sessão de jogo (só uma vez)
+      if (!hasTrackedSessionRef.current) {
+        hasTrackedSessionRef.current = true;
+        
+        console.log('🎮 Iniciando rastreamento de sessão...');
+        trackGameSession(game.id, game.console_type).then(unlocks => {
+          console.log('✅ Sessão rastreada.  Conquistas:', unlocks);
+          
+          if (unlocks && unlocks.length > 0) {
+            unlocks.forEach((title, index) => {
+              setTimeout(() => {
+                setNewAchievement(title);
+                setTimeout(() => setNewAchievement(null), 6000);
+              }, index * 6500);
+            });
+          }
+        }).catch(err => {
+          console.error('❌ Erro ao rastrear sessão:', err);
+        });
+      }
+
+      // Incrementar playtime a cada 60s
       interval = setInterval(async () => {
         const unlocked = await incrementPlaytime(60);
         if (unlocked) {
-          setNewAchievement(unlocked.title);
+          setNewAchievement(unlocked. title);
           setTimeout(() => setNewAchievement(null), 6000);
         }
       }, 60000);
     }
+    
     return () => clearInterval(interval);
-  }, [isPlaying, isGuest]);
+  }, [isPlaying, isGuest, game.id, game.console_type]);
+
+  // Função para ser chamada pelo FavoriteButton
+  const handleExternalAchievement = useCallback((title: string) => {
+    setNewAchievement(title);
+    setTimeout(() => setNewAchievement(null), 6000);
+  }, []);
+
+  // Expor função globalmente para o FavoriteButton usar
+  useEffect(() => {
+    (window as any).__showAchievement = handleExternalAchievement;
+    return () => {
+      delete (window as any).__showAchievement;
+    };
+  }, [handleExternalAchievement]);
 
   const handleGoToLogin = () => {
     router.push('/login');
@@ -233,10 +284,10 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
           allow="autoplay; fullscreen; gamepad"
         />
         
-        {!isPlaying && (
+        {! isPlaying && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-white bg-black/90 z-10 pointer-events-none">
             <Loader2 className="h-10 w-10 animate-spin text-brand-primary" />
-            <p className="font-mono text-sm animate-pulse">Iniciando Sistema...</p>
+            <p className="font-mono text-sm animate-pulse">Iniciando Sistema... </p>
           </div>
         )}
 
@@ -252,9 +303,9 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
         {loadStatus !== 'idle' && (
           <div className={`absolute top-16 right-4 z-20 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur-md animate-in fade-in slide-in-from-top-2
             ${loadStatus === 'error' ? 'bg-red-950/90 border-red-500/50 text-red-200' : 'bg-blue-950/90 border-blue-500/50 text-blue-200'}`}>
-            {loadStatus === 'loading' && <><Loader2 className="h-4 w-4 animate-spin" /><span>Carregando...</span></>}
+            {loadStatus === 'loading' && <><Loader2 className="h-4 w-4 animate-spin" /><span>Carregando... </span></>}
             {loadStatus === 'success' && <><CheckCircle2 className="h-4 w-4" /><span>Carregado!</span></>}
-            {loadStatus === 'error' && <><AlertTriangle className="h-4 w-4" /><span>Erro.</span></>}
+            {loadStatus === 'error' && <><AlertTriangle className="h-4 w-4" /><span>Erro. </span></>}
           </div>
         )}
 
@@ -264,7 +315,7 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
               <Trophy size={24} />
             </div>
             <div className="flex flex-col">
-              <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">Conquista Desbloqueada!</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-brand-primary">Conquista Desbloqueada! </span>
               <span className="text-lg font-bold text-white leading-tight">{newAchievement}</span>
             </div>
           </div>
@@ -280,13 +331,13 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
           <span className="text-xs text-text-muted">
              {isGuest 
                ? "Crie uma conta para salvar seu progresso na nuvem." 
-               : "Use o ícone de disquete (💾) dentro do jogo. O save é automático."}
+               : "Use o ícone de disquete (💾) dentro do jogo.  O save é automático. "}
           </span>
         </div>
 
         <button
           onClick={handleLoadClick}
-          disabled={loadStatus === 'loading' || !isPlaying}
+          disabled={loadStatus === 'loading' || ! isPlaying}
           className="flex items-center gap-2 rounded-md bg-background-secondary px-4 py-2 text-sm font-medium text-text-primary hover:bg-background-tertiary hover:text-white transition-colors border border-background-tertiary disabled:opacity-50"
         >
           {isGuest ? (
@@ -302,7 +353,7 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
         onClose={() => setShowLoginModal(false)}
         onConfirm={handleGoToLogin}
         title="Crie sua conta para salvar!"
-        description="Visitantes podem jogar à vontade, mas o progresso é perdido ao fechar a aba. Crie uma conta gratuita para habilitar o salvamento na nuvem e continuar de onde parou em qualquer lugar."
+        description="Visitantes podem jogar à vontade, mas o progresso é perdido ao fechar a aba.  Crie uma conta gratuita para habilitar o salvamento na nuvem e continuar de onde parou em qualquer lugar."
         isLoading={false}
         variant="primary"
         confirmLabel="Criar Conta / Login"
