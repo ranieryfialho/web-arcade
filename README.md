@@ -1,36 +1,24 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🕹️ Web Arcade
 
-## Getting Started
+Plataforma de **Cloud Gaming Retrô** que permite jogar clássicos de SNES, GBA e Mega Drive diretamente no navegador, com sistema de salvamento na nuvem e conquistas (gamificação).
 
-First, run the development server:
+![Project Status](https://img.shields.io/badge/status-active-success)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## ✨ Funcionalidades
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **🎮 Emulação Multi-Console:** Suporte para Super Nintendo (SNES), Game Boy Advance (GBA) e Mega Drive/Genesis via [EmulatorJS](https://emulatorjs.org/).
+- **☁️ Cloud Saves:** Salve seu progresso e continue de onde parou em qualquer dispositivo. O save é sincronizado automaticamente com sua conta.
+- **🏆 Sistema de Conquistas:** Desbloqueie troféus baseados em tempo de jogo, quantidade de jogos explorados e favoritos.
+- **📱 Design Responsivo:** Interface otimizada para Desktop e Mobile.
+- **🔐 Autenticação:** Sistema de login e cadastro seguro via Supabase Auth.
+- **👤 Perfis de Usuário:** Personalização de avatar e visualização de estatísticas de jogo.
+- **🛠️ Painel Admin:** Área restrita para upload de ROMs, capas e gerenciamento da biblioteca de jogos.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚀 Tecnologias Utilizadas
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Frontend:** [Next.js 15 (App Router)](https://nextjs.org/) & [React 19](https://react.dev/)
+- **Linguagem:** [TypeScript](https://www.typescriptlang.org/)
+- **Estilização:** [Tailwind CSS](https://tailwindcss.com/) & [Lucide React](https://lucide.dev/) (Ícones)
+- **Backend & Banco de Dados:** [Supabase](https://supabase.com/) (Auth, Postgres, Storage)
+- **Emulação:** [EmulatorJS](https://github.com/ethanaobrien/emulatorjs) (via Iframe)
