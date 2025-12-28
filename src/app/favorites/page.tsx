@@ -14,8 +14,7 @@ export default async function FavoritesPage() {
 
   if (!user) redirect('/login');
 
-  const { data: favorites } = await supabase
-    .from('user_favorites')
+  const { data: favorites } = await (supabase.from('user_favorites') as any)
     .select('created_at, games(*)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
@@ -34,9 +33,9 @@ export default async function FavoritesPage() {
           </div>
         </div>
 
-        {favorites && favorites.length > 0 ? (
+        {(favorites as any) && (favorites as any).length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {favorites.map((fav: any) => (
+            {(favorites as any).map((fav: any) => (
               <Link 
                 key={fav.games.id} 
                 href={`/play/${fav.games.id}`}

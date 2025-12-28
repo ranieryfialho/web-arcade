@@ -10,8 +10,7 @@ export const metadata = {
 export default async function ShelfPage() {
   const supabase = await createClient();
 
-  const { data: games } = await supabase
-    .from('games')
+  const { data: games } = await (supabase.from('games') as any)
     .select('*')
     .order('title', { ascending: true });
 
@@ -32,7 +31,7 @@ export default async function ShelfPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {games?.map((game) => (
+          {(games as any)?.map((game: any) => (
             <Link 
               key={game.id} 
               href={`/play/${game.id}`}
