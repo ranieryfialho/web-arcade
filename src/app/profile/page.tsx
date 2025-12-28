@@ -10,7 +10,6 @@ export const metadata = {
   title: 'Meu Perfil | Web Arcade',
 };
 
-// 🆕 FORÇA REVALIDAÇÃO A CADA REQUEST
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -20,24 +19,19 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    . from('profiles')
+  const { data: profile } = await (supabase.from('profiles') as any)
     .select('*')
     .eq('id', user.id)
     .single();
 
-  // Buscar TODAS as conquistas primeiro (para debug)
-  const { data: allUserAchievements } = await supabase
-    . from('user_achievements')
+  const { data: allUserAchievements } = await (supabase.from('user_achievements') as any)
     .select('*, achievements(*)')
     .eq('user_id', user.id);
 
   console.log('🔍 TODAS as conquistas do usuário:', allUserAchievements);
-  console.log('⭐ Conquistas em destaque:', allUserAchievements?. filter(a => a.is_featured));
+  console.log('⭐ Conquistas em destaque:', allUserAchievements?.filter((a: any) => a.is_featured));
 
-  // Buscar APENAS conquistas em destaque
-  const { data: featuredAchievements, error: featuredError } = await supabase
-    .from('user_achievements')
+  const { data: featuredAchievements, error: featuredError } = await (supabase.from('user_achievements') as any)
     .select('*, achievements(*)')
     .eq('user_id', user.id)
     .eq('is_featured', true)
@@ -50,8 +44,7 @@ export default async function ProfilePage() {
 
   console.log('📊 Resultado final (featuredAchievements):', featuredAchievements);
 
-  const { data: mySaves } = await supabase
-    .from('user_saves')
+  const { data: mySaves } = await (supabase.from('user_saves') as any)
     .select('id, last_played_at, games(id, title, console_type)')
     .eq('user_id', user.id)
     .order('last_played_at', { ascending: false });
@@ -59,20 +52,20 @@ export default async function ProfilePage() {
   return (
     <div className="container mx-auto min-h-screen px-4 py-8 space-y-8">
       
-      <div className="grid grid-cols-1 md: grid-cols-3 gap-8 rounded-2xl border border-background-tertiary bg-background-card p-6 shadow-xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 rounded-2xl border border-background-tertiary bg-background-card p-6 shadow-xl">
         <div className="flex flex-col items-center justify-center gap-4 border-b border-background-tertiary md:border-b-0 md:border-r pr-0 md:pr-6 pb-6 md:pb-0">
           <div className="h-32 w-32 rounded-full border-4 border-brand-primary overflow-hidden shadow-glow bg-black">
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-4xl font-bold text-brand-primary bg-background-secondary">
-                {profile?.username?. charAt(0).toUpperCase() || '?'}
+                {profile?.username?.charAt(0).toUpperCase() || '?'}
               </div>
             )}
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-bold text-text-primary">{profile?.username || 'Jogador Sem Nome'}</h1>
-            <p className="text-sm text-text-secondary">{user. email}</p>
+            <p className="text-sm text-text-secondary">{user.email}</p>
           </div>
         </div>
 
@@ -96,9 +89,9 @@ export default async function ProfilePage() {
         
         {featuredAchievements && featuredAchievements.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {featuredAchievements.map((item:  any) => (
+            {featuredAchievements.map((item: any) => (
               <AchievementCard 
-                key={item.achievements. id} 
+                key={item.achievements.id} 
                 achievement={item.achievements} 
                 unlockedAt={item.unlocked_at} 
               />

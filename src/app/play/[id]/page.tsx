@@ -13,7 +13,7 @@ interface PlayPageProps {
 export async function generateMetadata({ params }: PlayPageProps) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data: game } = await supabase. from('games').select('title').eq('id', id).single();
+  const { data: game } = await (supabase.from('games') as any).select('title').eq('id', id).single();
   
   return {
     title: game ?  `Jogando ${game.title} | Web Arcade` : 'Jogo não encontrado',
@@ -23,11 +23,8 @@ export async function generateMetadata({ params }: PlayPageProps) {
 export default async function PlayPage({ params }: PlayPageProps) {
   const { id } = await params;
   const supabase = await createClient();
-  const { data: { user } } = await supabase. auth.getUser();
-
-  // Busca o jogo (Público)
-  const { data: game, error } = await supabase
-    .from('games')
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: game, error } = await (supabase.from('games') as any)
     .select('*')
     .eq('id', id)
     .single();
@@ -36,11 +33,9 @@ export default async function PlayPage({ params }: PlayPageProps) {
     notFound();
   }
 
-  // Verifica favorito (Apenas se logado)
   let isFavorite = false;
   if (user) {
-    const { data: favData } = await supabase
-      .from('user_favorites')
+    const { data: favData } = await (supabase.from('user_favorites') as any)
       .select('id')
       .eq('user_id', user.id)
       .eq('game_id', id)
@@ -48,7 +43,6 @@ export default async function PlayPage({ params }: PlayPageProps) {
     isFavorite = !!favData;
   }
 
-  // Definimos se é visitante
   const isGuest = !user;
 
   return (
@@ -64,7 +58,7 @@ export default async function PlayPage({ params }: PlayPageProps) {
           </Link>
           
           <div className="flex items-center gap-4">
-            {! isGuest && <FavoriteButton gameId={game. id} initialIsFavorite={isFavorite} />}
+            {!isGuest && <FavoriteButton gameId={game.id} initialIsFavorite={isFavorite} />}
             
             <div className="flex items-center gap-3">
               <h1 className="font-mono text-lg font-bold text-text-primary hidden sm:block">

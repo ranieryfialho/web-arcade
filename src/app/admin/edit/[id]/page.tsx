@@ -15,7 +15,8 @@ export default async function EditGamePage({ params }: { params: Promise<{ id: s
     redirect('/');
   }
 
-  const { data: game } = await supabase.from('games').select('*').eq('id', id).single();
+  const { data: game } = await (supabase.from('games') as any).select('*').eq('id', id).single();
+  
   if (!game) redirect('/admin');
 
   return (
