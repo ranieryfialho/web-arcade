@@ -15,8 +15,7 @@ export default async function AdminPage() {
     redirect('/');
   }
 
-  const { data: games } = await supabase
-    .from('games')
+  const { data: games } = await (supabase.from('games') as any)
     .select('*')
     .order('created_at', { ascending: false });
 
@@ -43,7 +42,7 @@ export default async function AdminPage() {
                 Novo Jogo
               </h2>
 
-              <form action={createGame} className="flex flex-col gap-4" encType="multipart/form-data">
+              <form action={createGame as any} className="flex flex-col gap-4" encType="multipart/form-data">
                 
                 <div className="space-y-1">
                   <label className="text-xs font-bold uppercase text-text-muted">Nome do Jogo</label>
@@ -119,7 +118,7 @@ export default async function AdminPage() {
              </div>
 
              <div className="grid grid-cols-1 gap-4">
-                {games?.map((game) => (
+                {games?.map((game: any) => (
                   <div key={game.id} className="flex items-start gap-4 rounded-xl border border-background-tertiary bg-background-card p-4 transition-all hover:border-brand-primary/50 group">
                     
                     <div className="h-20 w-32 shrink-0 overflow-hidden rounded-lg bg-black border border-background-tertiary shadow-sm">

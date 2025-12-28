@@ -15,8 +15,8 @@ export default async function EditGamePage({ params }: { params: Promise<{ id: s
     redirect('/');
   }
 
+  // Mantemos a correção do banco de dados aqui
   const { data: game } = await (supabase.from('games') as any).select('*').eq('id', id).single();
-  
   if (!game) redirect('/admin');
 
   return (
@@ -38,7 +38,7 @@ export default async function EditGamePage({ params }: { params: Promise<{ id: s
             </div>
           </div>
 
-          <form action={updateGame} className="flex flex-col gap-6" encType="multipart/form-data">
+          <form action={updateGame as any} className="flex flex-col gap-6" encType="multipart/form-data">
             
             <input type="hidden" name="id" value={game.id} />
 
