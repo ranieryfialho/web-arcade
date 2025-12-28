@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Gamepad2, LogOut, User, Heart, Trophy, Library } from 'lucide-react';
+import { Gamepad2, LogOut, User, Heart, Trophy, Library, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { signout } from '@/app/login/actions';
 
@@ -22,6 +22,8 @@ export default async function Navbar() {
 
   const displayName = profile?.username || user?.email;
   const initial = displayName?.charAt(0).toUpperCase();
+
+  const isAdmin = user?.email === 'ranieryfialho@gmail.com';
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-background-tertiary bg-background-primary/80 backdrop-blur-md supports-[backdrop-filter]:bg-background-primary/60">
@@ -58,6 +60,16 @@ export default async function Navbar() {
             <Trophy size={16} />
             Conquistas
           </Link>
+          
+          {isAdmin && (
+            <Link 
+              href="/admin" 
+              className="flex items-center gap-1 rounded-full bg-red-500/10 px-3 py-1 text-xs font-bold text-red-500 hover:bg-red-500 hover:text-white transition-colors border border-red-500/20"
+            >
+              <ShieldCheck size={14} />
+              Admin
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-4">

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
-import { Gamepad2, Search } from 'lucide-react';
+import { Gamepad2, Search, Play } from 'lucide-react';
 import { ConsoleBadge } from '@/components/ui/ConsoleBadge';
 
 export const metadata = {
@@ -31,27 +31,42 @@ export default async function ShelfPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {games?.map((game) => (
             <Link 
               key={game.id} 
               href={`/play/${game.id}`}
-              className="group relative overflow-hidden rounded-xl border border-background-tertiary bg-background-card transition-all hover:-translate-y-1 hover:border-brand-primary hover:shadow-glow"
+              className="group relative overflow-hidden rounded-2xl border border-background-tertiary bg-background-card transition-all duration-300 hover:-translate-y-2 hover:border-brand-primary hover:shadow-2xl"
             >
-              <div className="aspect-video w-full bg-black relative">
+              <div className="aspect-video w-full bg-black relative p-4 overflow-hidden">
+                
+                <div 
+                  className="absolute inset-0 opacity-30 blur-xl scale-110 transition-opacity group-hover:opacity-50"
+                  style={{ backgroundImage: `url(${game.cover_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                />
+
                 <img 
                   src={game.cover_url} 
                   alt={game.title} 
-                  className="h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100"
+                  className="relative h-full w-full object-contain transition-transform duration-500 group-hover:scale-110 drop-shadow-2xl z-10"
                 />
-                <div className="absolute bottom-2 right-2">
+
+                <div className="absolute bottom-3 right-3 z-20">
                   <ConsoleBadge type={game.console_type} />
+                </div>
+                
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-300 group-hover:opacity-100 backdrop-blur-[2px]">
+                   <div className="flex items-center gap-2 rounded-full bg-brand-primary px-6 py-3 font-bold text-white shadow-glow transform scale-90 group-hover:scale-100 transition-transform">
+                      <Play size={20} fill="currentColor" /> Jogar
+                   </div>
                 </div>
               </div>
 
-              <div className="p-4">
-                <h3 className="font-bold text-text-primary truncate">{game.title}</h3>
-                <p className="text-xs text-text-muted mt-1">Clique para jogar agora</p>
+              <div className="p-5">
+                <h3 className="text-xl font-bold text-text-primary truncate">{game.title}</h3>
+                <p className="mt-1 text-sm text-text-secondary line-clamp-2 h-10">
+                   {game.description || "Uma aventura clássica espera por você."}
+                </p>
               </div>
             </Link>
           ))}
