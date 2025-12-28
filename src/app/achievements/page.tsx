@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { Trophy, Lock, Star, Calendar, LucideIcon } from 'lucide-react'; // Adicionei LucideIcon para tipagem correta se precisar
+import { Trophy, Lock, Star, Calendar } from 'lucide-react';
 import { FeaturedButton } from '@/components/features/FeaturedButton';
 
+// Tipagem frouxa para evitar problemas com ícones dinâmicos
 const iconMap: any = {
   'trophy': Trophy,
   'timer': Trophy,
@@ -44,6 +45,7 @@ export default async function AchievementsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Forçamos 'as any' na origem dos dados
   const { data: allAchievements } = await (supabase
     .from('achievements') as any)
     .select('*')
@@ -54,6 +56,7 @@ export default async function AchievementsPage() {
     .select('achievement_id, unlocked_at, is_featured')
     .eq('user_id', user.id);
 
+  // Criamos o Map
   const unlockedMap = new Map((userUnlocks as any)?.map((u: any) => [u.achievement_id, u]) || []);
 
   const totalCount = allAchievements?.length || 0;
@@ -92,9 +95,13 @@ export default async function AchievementsPage() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {allAchievements?.map((ach: any) => {
-            const unlock = unlockedMap.get(ach.id);
+            // 👇 AQUI ESTAVA O PROBLEMA: Adicionamos 'as any' na recuperação do valor
+            const unlock = unlockedMap.get(ach.id) as any;
+            
             const isUnlocked = !!unlock;
+            // Agora o TS sabe que 'unlock' é any e permite acessar .is_featured
             const isFeatured = unlock?.is_featured || false;
+            
             const Icon = iconMap[ach.icon] || Trophy;
 
             return (
