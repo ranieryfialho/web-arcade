@@ -1,22 +1,15 @@
 import Link from 'next/link';
-import { Gamepad2, Cloud, Trophy, Zap, Sparkles } from 'lucide-react';
+import { Gamepad2, Cloud, Trophy, Zap } from 'lucide-react';
 
 export default function Home() {
   return (
-    // Mantemos a trava de rolagem
-    <div className="relative h-[calc(100vh-4rem)] w-full overflow-hidden bg-[#030014] text-white selection:bg-purple-500/30">
+    <div className="relative min-h-[calc(100vh-4rem)] w-full overflow-x-hidden bg-[#030014] text-white selection:bg-purple-500/30">
       
-      {/* Background Effects */}
       <div className="absolute -left-20 -top-20 h-[500px] w-[500px] rounded-full bg-purple-600/20 blur-[120px]" />
       <div className="absolute -bottom-40 -right-20 h-[600px] w-[600px] rounded-full bg-blue-600/10 blur-[100px]" />
-      
-      {/* Usei 'justify-evenly' aqui. 
-         Ele espalha as seções (Hero e Cards) usando o espaço vazio disponível,
-         sem precisar diminuir o tamanho dos seus botões ou cards.
-      */}
-      <div className="container relative z-10 mx-auto flex h-full flex-col items-center justify-evenly px-6 py-4">
+
+      <div className="container relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center gap-12 px-6 py-12 md:justify-evenly md:gap-0 md:py-4">
         
-        {/* --- HERO SECTION --- */}
         <section className="flex flex-col items-center text-center">
           
           <h1 className="max-w-5xl text-5xl font-extrabold tracking-tight sm:text-7xl lg:text-8xl animate-in zoom-in-95 duration-700 delay-100 leading-tight">
@@ -27,7 +20,6 @@ export default function Home() {
             Sua coleção completa de clássicos, rodando instantaneamente no navegador com tecnologia de nuvem.
           </p>
 
-          {/* BOTÕES GRANDES RESTAURADOS (px-8 py-4 text-lg) */}
           <div className="mt-8 flex flex-wrap justify-center gap-6 animate-in slide-in-from-bottom-8 duration-700 delay-300">
             <Link
               href="/shelf"
@@ -46,8 +38,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* --- CARDS SECTION --- */}
-        {/* CARDS GRANDES RESTAURADOS (p-8, gap-6, ícones grandes) */}
         <section className="grid w-full grid-cols-1 gap-6 md:grid-cols-3 animate-in slide-in-from-bottom-12 duration-1000 delay-500">
            
            <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl transition-all hover:-translate-y-2 hover:border-purple-500/30 hover:bg-white/10">
