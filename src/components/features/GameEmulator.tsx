@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Loader2, Save, CheckCircle2, AlertTriangle, Trophy, DownloadCloud, LogIn } from 'lucide-react';
-import { Database } from '@/types/database. types';
+import { Database } from '@/types/database.types';
 import { getLatestSave, uploadSaveState, incrementPlaytime } from '@/app/play/actions';
 import { trackGameSession } from '@/app/play/sessionTracking';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
