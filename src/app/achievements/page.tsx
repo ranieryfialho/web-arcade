@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { Trophy, Lock, Star, Calendar } from 'lucide-react';
+import { Trophy, Lock, Star, Calendar, LucideIcon } from 'lucide-react'; // Adicionei LucideIcon para tipagem correta se precisar
 import { FeaturedButton } from '@/components/features/FeaturedButton';
 
-const iconMap:  any = {
+const iconMap: any = {
   'trophy': Trophy,
   'timer': Trophy,
   'watch': Trophy,
@@ -41,22 +41,22 @@ const iconMap:  any = {
 export default async function AchievementsPage() {
   const supabase = await createClient();
 
-  const { data: { user } } = await supabase. auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: allAchievements } = await supabase
-    .from('achievements')
+  const { data: allAchievements } = await (supabase
+    .from('achievements') as any)
     .select('*')
     .order('threshold', { ascending: true });
 
-  const { data: userUnlocks } = await supabase
-    .from('user_achievements')
+  const { data: userUnlocks } = await (supabase
+    .from('user_achievements') as any)
     .select('achievement_id, unlocked_at, is_featured')
     .eq('user_id', user.id);
 
-  const unlockedMap = new Map(userUnlocks?. map(u => [u.achievement_id, u]) || []);
+  const unlockedMap = new Map((userUnlocks as any)?.map((u: any) => [u.achievement_id, u]) || []);
 
-  const totalCount = allAchievements?. length || 0;
+  const totalCount = allAchievements?.length || 0;
   const unlockedCount = userUnlocks?.length || 0;
   const progressPercent = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
 
@@ -91,10 +91,10 @@ export default async function AchievementsPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {allAchievements?. map((ach) => {
+          {allAchievements?.map((ach: any) => {
             const unlock = unlockedMap.get(ach.id);
-            const isUnlocked = !! unlock;
-            const isFeatured = unlock?. is_featured || false;
+            const isUnlocked = !!unlock;
+            const isFeatured = unlock?.is_featured || false;
             const Icon = iconMap[ach.icon] || Trophy;
 
             return (
@@ -139,7 +139,7 @@ export default async function AchievementsPage() {
                       </p>
                     )}
 
-                    {! isUnlocked && (
+                    {!isUnlocked && (
                       <div className="mt-2 flex items-center gap-1 text-xs text-text-muted">
                         <Lock size={12} />
                         <span>Bloqueado</span>
