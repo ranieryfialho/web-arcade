@@ -1,13 +1,18 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { Trash2, Calendar, Gamepad2, Trophy, Save as DiskIcon } from 'lucide-react';
+import { Gamepad2, Trophy, Save as DiskIcon } from 'lucide-react';
 import { ProfileForm } from '@/components/features/ProfileForm';
 import { AchievementCard } from '@/components/features/AchievementCard';
 import { SaveRow } from '@/components/features/SaveRow';
+import Link from 'next/link';
 
 export const metadata = {
   title: 'Meu Perfil | Web Arcade',
 };
+
+// 🆕 FORÇA REVALIDAÇÃO A CADA REQUEST
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -16,16 +21,34 @@ export default async function ProfilePage() {
   if (!user) redirect('/login');
 
   const { data: profile } = await supabase
-    .from('profiles')
+    . from('profiles')
     .select('*')
     .eq('id', user.id)
     .single();
 
-  const { data: myAchievements } = await supabase
+  // Buscar TODAS as conquistas primeiro (para debug)
+  const { data: allUserAchievements } = await supabase
+    . from('user_achievements')
+    .select('*, achievements(*)')
+    .eq('user_id', user.id);
+
+  console.log('🔍 TODAS as conquistas do usuário:', allUserAchievements);
+  console.log('⭐ Conquistas em destaque:', allUserAchievements?. filter(a => a.is_featured));
+
+  // Buscar APENAS conquistas em destaque
+  const { data: featuredAchievements, error: featuredError } = await supabase
     .from('user_achievements')
-    .select('unlocked_at, achievements(*)')
+    .select('*, achievements(*)')
     .eq('user_id', user.id)
-    .order('unlocked_at', { ascending: false });
+    .eq('is_featured', true)
+    .order('unlocked_at', { ascending: false })
+    .limit(3);
+
+  if (featuredError) {
+    console.error('❌ Erro ao buscar conquistas em destaque:', featuredError);
+  }
+
+  console.log('📊 Resultado final (featuredAchievements):', featuredAchievements);
 
   const { data: mySaves } = await supabase
     .from('user_saves')
@@ -36,24 +59,23 @@ export default async function ProfilePage() {
   return (
     <div className="container mx-auto min-h-screen px-4 py-8 space-y-8">
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 rounded-2xl border border-background-tertiary bg-background-card p-6 shadow-xl">
+      <div className="grid grid-cols-1 md: grid-cols-3 gap-8 rounded-2xl border border-background-tertiary bg-background-card p-6 shadow-xl">
         <div className="flex flex-col items-center justify-center gap-4 border-b border-background-tertiary md:border-b-0 md:border-r pr-0 md:pr-6 pb-6 md:pb-0">
           <div className="h-32 w-32 rounded-full border-4 border-brand-primary overflow-hidden shadow-glow bg-black">
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="Avatar" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-4xl font-bold text-brand-primary bg-background-secondary">
-                {profile?.username?.charAt(0).toUpperCase() || '?'}
+                {profile?.username?. charAt(0).toUpperCase() || '?'}
               </div>
             )}
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-bold text-text-primary">{profile?.username || 'Jogador Sem Nome'}</h1>
-            <p className="text-sm text-text-secondary">{user.email}</p>
+            <p className="text-sm text-text-secondary">{user. email}</p>
           </div>
         </div>
 
-        {/* Formulário */}
         <div className="col-span-1 md:col-span-2 pl-0 md:pl-2">
           <h2 className="mb-4 text-lg font-bold text-text-primary flex items-center gap-2">
             <Gamepad2 className="text-brand-secondary" />
@@ -69,22 +91,32 @@ export default async function ProfilePage() {
       <div>
         <h2 className="mb-4 text-xl font-bold text-text-primary flex items-center gap-2 border-l-4 border-brand-primary pl-3">
           <Trophy className="text-yellow-500" />
-          Minhas Conquistas ({myAchievements?.length || 0})
+          Conquistas em Destaque ({featuredAchievements?.length || 0}/3)
         </h2>
         
-        {myAchievements && myAchievements.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {myAchievements.map((item: any) => (
+        {featuredAchievements && featuredAchievements.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredAchievements.map((item:  any) => (
               <AchievementCard 
-                key={item.achievements.id} 
+                key={item.achievements. id} 
                 achievement={item.achievements} 
                 unlockedAt={item.unlocked_at} 
               />
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-background-tertiary p-8 text-center text-text-muted">
-            Você ainda não desbloqueou nenhuma conquista. Vá jogar!
+          <div className="rounded-lg border border-dashed border-background-tertiary p-8 text-center">
+            <p className="text-text-muted mb-2">Você ainda não destacou nenhuma conquista. </p>
+            <p className="text-sm text-text-secondary mb-4">
+              Vá para a página de conquistas e clique na estrela ⭐ para destacar até 3! 
+            </p>
+            <Link 
+              href="/achievements" 
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-bold text-white hover:bg-brand-secondary transition-colors"
+            >
+              <Trophy size={16} />
+              Ver Conquistas
+            </Link>
           </div>
         )}
       </div>
@@ -113,7 +145,7 @@ export default async function ProfilePage() {
               ) : (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-text-muted">
-                    Nenhum save encontrado na nuvem.
+                    Nenhum save encontrado na nuvem. 
                   </td>
                 </tr>
               )}

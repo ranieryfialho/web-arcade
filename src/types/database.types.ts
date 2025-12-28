@@ -19,13 +19,13 @@ export interface Database {
         }
         Insert: {
           id: string
-          username?:  string | null
+          username?: string | null
           avatar_url?: string | null
           total_playtime_seconds?: number
-          created_at?:  string
+          created_at?: string
         }
         Update: {
-          id?:  string
+          id?: string
           username?: string | null
           avatar_url?: string | null
           total_playtime_seconds?: number
@@ -35,7 +35,7 @@ export interface Database {
       games: {
         Row: {
           id: string
-          title:  string
+          title: string
           console_type: 'SNES' | 'MEGA_DRIVE' | 'GBA'
           rom_url: string
           cover_url: string
@@ -43,18 +43,18 @@ export interface Database {
           created_at: string
         }
         Insert: {
-          id?:  string
+          id?: string
           title: string
           console_type: string
           rom_url: string
           cover_url: string
-          description?:  string | null
+          description?: string | null
           created_at?: string
         }
         Update: {
           id?: string
-          title?:  string
-          console_type?:  string
+          title?: string
+          console_type?: string
           rom_url?: string
           cover_url?: string
           description?: string | null
@@ -71,11 +71,11 @@ export interface Database {
           created_at: string
         }
         Insert: {
-          id?:  string
+          id?: string
           user_id: string
           game_id: string
           save_file_url: string
-          last_played_at?:  string
+          last_played_at?: string
           created_at?: string
         }
         Update: {
@@ -92,13 +92,13 @@ export interface Database {
           id: string
           title: string
           description: string
-          icon:  string
+          icon: string
           metric_type: string
           threshold: number
           created_at: string
         }
         Insert: {
-          id?:  string
+          id?: string
           title: string
           description: string
           icon: string
@@ -122,18 +122,21 @@ export interface Database {
           user_id: string
           achievement_id: string
           unlocked_at: string
+          is_featured: boolean
         }
         Insert: {
           id?: string
           user_id: string
-          achievement_id:  string
-          unlocked_at?:  string
+          achievement_id: string
+          unlocked_at?: string
+          is_featured?: boolean
         }
-        Update:  {
+        Update: {
           id?: string
           user_id?: string
           achievement_id?: string
           unlocked_at?: string
+          is_featured?: boolean
         }
       }
       user_favorites: {
@@ -141,9 +144,9 @@ export interface Database {
           id: string
           user_id: string
           game_id: string
-          created_at:  string
+          created_at: string
         }
-        Insert:  {
+        Insert: {
           id?: string
           user_id: string
           game_id: string
@@ -166,11 +169,11 @@ export interface Database {
           created_at: string
         }
         Insert: {
-          id?:  string
+          id?: string
           user_id: string
           game_id: string
           console_type: string
-          started_at?:  string
+          started_at?: string
           created_at?: string
         }
         Update: {
@@ -178,7 +181,7 @@ export interface Database {
           user_id?: string
           game_id?: string
           console_type?: string
-          started_at?:  string
+          started_at?: string
           created_at?: string
         }
       }
