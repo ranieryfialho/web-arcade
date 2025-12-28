@@ -12,8 +12,7 @@ export default async function Navbar() {
 
   let profile = null;
   if (user) {
-    const { data } = await supabase
-      .from('profiles')
+    const { data } = await (supabase.from('profiles') as any)
       .select('username, avatar_url')
       .eq('id', user.id)
       .single();
