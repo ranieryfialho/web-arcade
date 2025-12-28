@@ -14,7 +14,6 @@ export async function trackGameSession(gameId:  string, consoleType: string) {
 
   console.log(`🎮 Rastreando sessão:  ${gameId} (${consoleType})`);
 
-  // Inserir sessão
   const { error } = await supabase
     .from('game_sessions')
     .insert({
@@ -28,7 +27,6 @@ export async function trackGameSession(gameId:  string, consoleType: string) {
     return [];
   }
 
-  // Verificar conquistas
   const newUnlocks = await checkAndUnlockAchievements();
   
   console.log(`✅ Sessão criada.  Conquistas desbloqueadas: ${newUnlocks.length}`);

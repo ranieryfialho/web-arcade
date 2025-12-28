@@ -170,7 +170,6 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
       console.log("✅ Save salvo na nuvem!");
       setSaveStatus('success');
 
-      // 🆕 Exibir conquistas de SAVES_MADE
       if (result.newUnlocks && result.newUnlocks.length > 0) {
         result.newUnlocks.forEach((title, index) => {
           setTimeout(() => {
@@ -220,7 +219,6 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
     let interval: NodeJS.Timeout;
     
     if (isPlaying && !isGuest) {
-      // 🆕 Rastrear sessão de jogo (só uma vez)
       if (!hasTrackedSessionRef.current) {
         hasTrackedSessionRef.current = true;
         
@@ -241,7 +239,6 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
         });
       }
 
-      // Incrementar playtime a cada 60s
       interval = setInterval(async () => {
         const unlocked = await incrementPlaytime(60);
         if (unlocked) {
@@ -254,13 +251,11 @@ export function GameEmulator({ game, isGuest }: GameEmulatorProps) {
     return () => clearInterval(interval);
   }, [isPlaying, isGuest, game.id, game.console_type]);
 
-  // Função para ser chamada pelo FavoriteButton
   const handleExternalAchievement = useCallback((title: string) => {
     setNewAchievement(title);
     setTimeout(() => setNewAchievement(null), 6000);
   }, []);
 
-  // Expor função globalmente para o FavoriteButton usar
   useEffect(() => {
     (window as any).__showAchievement = handleExternalAchievement;
     return () => {
