@@ -4,6 +4,7 @@ import { Gamepad2, Trophy, Save as DiskIcon } from 'lucide-react';
 import { ProfileForm } from '@/components/features/ProfileForm';
 import { AchievementCard } from '@/components/features/AchievementCard';
 import { SaveRow } from '@/components/features/SaveRow';
+import { DeleteAccountSection } from '@/components/features/DeleteAccountSection';
 import Link from 'next/link';
 
 export const metadata = {
@@ -146,6 +147,9 @@ export default async function ProfilePage() {
           </table>
         </div>
       </div>
+
+      <DeleteAccountSection />
+
     </div>
   );
 }
