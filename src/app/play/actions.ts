@@ -4,37 +4,25 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { checkAndUnlockAchievements } from '@/lib/achievements'
 
-export async function uploadSaveState(formData: FormData) {
+// ✅ NOVA FUNÇÃO: substitui uploadSaveState
+// O upload do arquivo agora é feito client-side (no GameEmulator.tsx)
+// diretamente para o Supabase Storage, evitando o limite de payload da Vercel (~4.5MB)
+// que causava erro 403 especificamente nos saves do SNES (arquivos maiores).
+// Esta Server Action recebe apenas o path do arquivo já enviado e registra no banco.
+export async function registerSave(gameId: string, filePath: string) {
   const supabase = await createClient()
-  
+
   const { data: { session }, error: authError } = await supabase.auth.getSession()
-  
+
   if (authError || !session) {
-    console.error("❌ [Server Action] Falha de sessão:", authError?.message || "Sem sessão");
+    console.error("❌ [registerSave] Falha de sessão:", authError?.message || "Sem sessão");
     return { error: 'Sessão expirada. Faça login novamente.' }
   }
 
-  const user = session.user;
-  const file = formData.get('file') as File
-  const gameId = formData.get('gameId') as string
-  
-  if (!file || !gameId) {
+  const user = session.user
+
+  if (!gameId || !filePath) {
     return { error: 'Dados inválidos recebidos' }
-  }
-
-  const filePath = `${user.id}/${gameId}.state`
-
-  const { error: uploadError } = await supabase
-    .storage
-    .from('user-saves')
-    .upload(filePath, file, {
-      upsert: true,
-      contentType: 'application/octet-stream'
-    })
-
-  if (uploadError) {
-    console.error('❌ [Server Action] Erro Storage:', uploadError.message)
-    return { error: 'Erro ao salvar arquivo na nuvem' }
   }
 
   const { data: existingSave } = await (supabase.from('user_saves') as any)
@@ -44,7 +32,7 @@ export async function uploadSaveState(formData: FormData) {
     .single()
 
   let dbError;
-  
+
   if (existingSave) {
     const { error } = await (supabase.from('user_saves') as any)
       .update({
@@ -65,7 +53,7 @@ export async function uploadSaveState(formData: FormData) {
   }
 
   if (dbError) {
-    console.error('❌ [Server Action] Erro Banco:', dbError.message)
+    console.error('❌ [registerSave] Erro Banco:', dbError.message)
     return { error: 'Erro ao registrar no banco' }
   }
 
